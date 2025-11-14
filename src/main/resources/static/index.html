@@ -1,0 +1,1028 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Project Planner</title>
+    <style>
+        :root {
+            --bg: #050814;
+            --surface: #101b33;
+            --surface-alt: #182447;
+            --text: #f5f8ff;
+            --muted: rgba(226, 232, 255, 0.72);
+            --accent-blue: #4f7fff;
+            --accent-green: #36c690;
+            --danger: #ff6b6b;
+            --border: rgba(130, 152, 195, 0.28);
+            --radius-lg: 20px;
+            --radius-md: 14px;
+            --radius-sm: 10px;
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            background: radial-gradient(circle at top, rgba(30, 52, 98, 0.85), var(--bg));
+            color: var(--text);
+            padding: clamp(24px, 5vw, 56px);
+            display: grid;
+            gap: clamp(24px, 4vw, 40px);
+        }
+
+        header {
+            display: grid;
+            gap: 24px;
+            background: linear-gradient(135deg, rgba(35, 57, 105, 0.75), rgba(13, 21, 40, 0.9));
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: clamp(24px, 4vw, 40px);
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
+            text-align: center;
+            justify-items: center;
+        }
+
+        .hero-text {
+            display: grid;
+            gap: 18px;
+            max-width: min(680px, 100%);
+        }
+
+        header h1 {
+            display: inline-flex;
+            align-items: center;
+            gap: 16px;
+            font-size: clamp(2.2rem, 4vw, 2.8rem);
+            font-weight: 700;
+            letter-spacing: -0.02em;
+        }
+
+        header h1 span {
+            display: inline-flex;
+            width: clamp(48px, 4vw, 58px);
+            height: clamp(48px, 4vw, 58px);
+            border-radius: 16px;
+            align-items: center;
+            justify-content: center;
+            background: rgba(79, 127, 255, 0.22);
+            font-size: clamp(24px, 3vw, 30px);
+        }
+
+        header p {
+            color: var(--muted);
+            line-height: 1.7;
+        }
+
+        form {
+            display: grid;
+            gap: 20px;
+            max-width: min(720px, 100%);
+            width: 100%;
+            justify-items: stretch;
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+            width: 100%;
+        }
+
+        .field-name {
+            max-width: min(420px, 100%);
+            justify-self: center;
+        }
+
+        .field-description textarea {
+            min-height: 220px;
+        }
+
+        label {
+            font-weight: 600;
+            font-size: 0.95rem;
+            color: rgba(230, 236, 255, 0.85);
+        }
+
+        input, textarea {
+            background: rgba(13, 22, 43, 0.7);
+            border: 1px solid rgba(79, 127, 255, 0.35);
+            color: inherit;
+            font: inherit;
+            padding: 14px 16px;
+            border-radius: var(--radius-sm);
+            transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        input:focus, textarea:focus {
+            outline: none;
+            border-color: rgba(79, 127, 255, 0.7);
+            box-shadow: 0 0 0 4px rgba(79, 127, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        textarea {
+            resize: vertical;
+        }
+
+        button[type="submit"] {
+            justify-self: center;
+            padding: 14px 32px;
+            border-radius: var(--radius-sm);
+            border: none;
+            background: linear-gradient(135deg, #4f7fff, #a855f7);
+            color: white;
+            font-weight: 600;
+            letter-spacing: 0.02em;
+            cursor: pointer;
+            box-shadow: 0 24px 55px rgba(79, 127, 255, 0.45);
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        button[type="submit"]:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 28px 70px rgba(79, 127, 255, 0.55);
+        }
+
+        .banner {
+            display: none;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            background: rgba(79, 127, 255, 0.14);
+            border: 1px solid rgba(79, 127, 255, 0.28);
+            padding: 16px;
+            border-radius: var(--radius-md);
+            color: rgba(233, 238, 255, 0.9);
+            font-size: 0.95rem;
+        }
+
+        .banner.active { display: flex; }
+
+        main { display: grid; gap: 18px; }
+        h2 { font-size: 1.4rem; font-weight: 600; }
+
+        .empty {
+            text-align: center;
+            padding: 36px;
+            background: rgba(16, 27, 53, 0.78);
+            border-radius: var(--radius-lg);
+            border: 1px dashed var(--border);
+            color: var(--muted);
+        }
+
+        .project {
+            background: rgba(13, 22, 43, 0.85);
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--border);
+            padding: clamp(20px, 3vw, 28px);
+            display: grid;
+            gap: 18px;
+            box-shadow: 0 28px 60px rgba(0, 0, 0, 0.38);
+        }
+
+        .project-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            flex-wrap: wrap;
+            gap: 18px;
+        }
+
+        .project-meta {
+            display: grid;
+            gap: 6px;
+        }
+
+        .project-meta span {
+            color: var(--muted);
+            font-size: 0.95rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(233, 238, 255, 0.16);
+            background: rgba(233, 238, 255, 0.08);
+            color: var(--text);
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.16s ease, transform 0.16s ease;
+        }
+
+        .btn:hover {
+            background: rgba(233, 238, 255, 0.16);
+            transform: translateY(-1px);
+        }
+
+        .btn.danger {
+            border-color: rgba(255, 107, 107, 0.32);
+            background: rgba(255, 107, 107, 0.14);
+            color: #ffd5d5;
+        }
+
+        .details {
+            display: none;
+            gap: 18px;
+            background: var(--surface-alt);
+            border-radius: var(--radius-md);
+            border: 1px solid rgba(130, 152, 195, 0.25);
+            padding: clamp(18px, 3vw, 24px);
+        }
+
+        .details.active { display: grid; }
+
+        .plan-section {
+            display: grid;
+            gap: 14px;
+        }
+
+        .plan-header { display: grid; gap: 6px; }
+
+        .plan-header h3 {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.15rem;
+            font-weight: 600;
+        }
+
+        .plan-header p {
+            color: var(--muted);
+            line-height: 1.6;
+        }
+
+        .stage, .sprint {
+            background: rgba(10, 18, 36, 0.72);
+            border: 1px solid rgba(130, 152, 195, 0.22);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+            display: grid;
+            gap: 12px;
+        }
+
+        .stage-header, .sprint-header {
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .stage-header h4, .sprint-header h4 {
+            font-size: 1.05rem;
+            font-weight: 600;
+        }
+
+        .chip-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.84rem;
+            color: var(--muted);
+            align-items: flex-start;
+            margin-top: 4px;
+        }
+
+        .chip-row span {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(130, 152, 195, 0.32);
+            background: rgba(130, 152, 195, 0.08);
+            line-height: 1.1;
+        }
+
+        .description {
+            color: var(--muted);
+            line-height: 1.55;
+        }
+
+        .list-block {
+            background: rgba(7, 13, 28, 0.6);
+            border: 1px solid rgba(130, 152, 195, 0.2);
+            border-radius: var(--radius-sm);
+            padding: 12px 14px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .list-block h5 {
+            font-size: 0.88rem;
+            font-weight: 600;
+            color: rgba(230, 236, 255, 0.85);
+        }
+
+        .list-block ul {
+            display: grid;
+            gap: 6px;
+            color: var(--muted);
+            font-size: 0.9rem;
+            padding-left: 18px;
+        }
+
+        .card-grid {
+            display: grid;
+            gap: 12px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        }
+
+        .story-card, .subtask-card {
+            background: rgba(9, 16, 32, 0.65);
+            border-radius: var(--radius-sm);
+            border: 1px dashed rgba(79, 127, 255, 0.28);
+            padding: 12px 14px;
+            display: grid;
+            gap: 8px;
+        }
+
+        .chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            font-size: 0.85rem;
+            color: rgba(226, 232, 255, 0.82);
+            align-items: flex-start;
+            margin-top: 4px;
+        }
+
+        .chips span {
+            display: inline-flex;
+            align-items: center;
+            padding: 6px 12px;
+            border-radius: 999px;
+            border: 1px solid rgba(130, 152, 195, 0.32);
+            background: rgba(130, 152, 195, 0.08);
+            line-height: 1.1;
+        }
+
+        .jira-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .jira-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 16px;
+            border-radius: var(--radius-sm);
+            border: 1px solid rgba(79, 127, 255, 0.35);
+            background: rgba(79, 127, 255, 0.18);
+            color: var(--text);
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .raw-editor {
+            display: grid;
+            gap: 8px;
+            margin-top: 18px;
+            background: rgba(8, 16, 32, 0.6);
+            border: 1px solid rgba(130, 152, 195, 0.25);
+            border-radius: var(--radius-sm);
+            padding: 16px;
+        }
+
+        .raw-editor h4 {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: rgba(230, 236, 255, 0.9);
+        }
+
+        .raw-editor textarea {
+            width: 100%;
+            min-height: 220px;
+            resize: vertical;
+            background: rgba(5, 12, 28, 0.85);
+            color: var(--text);
+            border: 1px solid rgba(79, 127, 255, 0.35);
+            border-radius: var(--radius-sm);
+            padding: 14px;
+            font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .raw-editor textarea:focus {
+            outline: none;
+            border-color: rgba(79, 127, 255, 0.7);
+            box-shadow: 0 0 0 3px rgba(79, 127, 255, 0.2);
+        }
+
+        .raw-editor small {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .editable {
+            position: relative;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background 0.2s ease, outline 0.2s ease;
+            cursor: text;
+        }
+
+        .editable:hover {
+            background: rgba(79, 127, 255, 0.1);
+            outline: 1px dashed rgba(79, 127, 255, 0.3);
+        }
+
+        .editable:focus {
+            background: rgba(79, 127, 255, 0.15);
+            outline: 2px solid rgba(79, 127, 255, 0.5);
+        }
+
+        .editable:empty::before {
+            content: attr(data-placeholder);
+            color: var(--muted);
+            font-style: italic;
+        }
+
+        @media (max-width: 720px) {
+            body { padding: 18px; }
+            .actions { width: 100%; flex-direction: column; }
+            .btn { width: 100%; justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+        <header>
+        <div class="hero-text">
+            <h1><span>✨</span>AI Project Planner</h1>
+            <p>
+                Zadaj názov a popis projektu. Backend vygeneruje PRINCE2 aj Scrum plán v XML a frontend ich
+                zobrazí v prehľadnej podobe. Odtiaľ ich jedným klikom odošleš do Jira.
+            </p>
+        </div>
+            <form id="projectForm">
+            <div class="field field-name">
+                <label for="projectName">Názov témy</label>
+                <input id="projectName" name="name" type="text" placeholder="Napr. Inteligentné plánovanie rozpočtu" required>
+                </div>
+            <div class="field field-description">
+                <label for="projectDescription">Popis témy</label>
+                <textarea id="projectDescription" name="description" placeholder="Stručne popíš ciele, prínosy a očakávané deliverables projektu." required rows="6"></textarea>
+                </div>
+            <button type="submit">Vygenerovať plán</button>
+            </form>
+    </header>
+
+    <div id="loadingBanner" class="banner">⏳ Generujem plán... môže to chvíľku trvať.</div>
+
+    <main>
+        <h2>Uložené projekty</h2>
+        <div id="projectsContainer"></div>
+    </main>
+
+    <script>
+    const jiraExports = JSON.parse(localStorage.getItem('jiraExports') || '{}');
+    const state = { projects: [] };
+
+    document.getElementById('projectForm').addEventListener('submit', onSubmit);
+    loadProjects();
+
+    async function onSubmit(event) {
+        event.preventDefault();
+        const name = document.getElementById('projectName').value.trim();
+        const description = document.getElementById('projectDescription').value.trim();
+        if (!name || !description) return;
+
+        setLoading(true);
+            try {
+                const response = await fetch('/api/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description })
+            });
+
+            const raw = await response.text();
+            let result = {};
+            try {
+                result = raw ? JSON.parse(raw) : {};
+            } catch (parseError) {
+                console.warn('⚠️ /api/generate – nepodarilo sa parse-nuť JSON odpoveď.', parseError);
+            }
+
+            console.log('🛰️ /api/generate response', { status: response.status, body: result || raw });
+
+            if (!response.ok) {
+                alert(`❌ Backend vrátil chybu (${response.status}). Pozri konzolu pre detaily.`);
+                await loadProjects();
+                return;
+            }
+
+            const xmlPayload = typeof result?.xml === 'string' ? result.xml.trim() : '';
+            if (!xmlPayload) {
+                console.warn('⚠️ /api/generate neobsahuje xml payload alebo je prázdny.');
+            }
+
+            await loadProjects();
+            event.target.reset();
+
+            if (xmlPayload) {
+                alert('✅ Plán bol vygenerovaný.');
+            } else {
+                alert('⚠️ OpenAI nevrátil XML odpoveď. Pozri konzolu a logy pre detaily.');
+                }
+            } catch (error) {
+            console.error('❌ Chyba pri volaní /api/generate', error);
+            alert('❌ Nepodarilo sa vygenerovať plán.');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function setLoading(flag) {
+        document.getElementById('loadingBanner').classList.toggle('active', flag);
+    }
+
+        async function loadProjects() {
+            try {
+                const response = await fetch('/api/projects');
+        if (!response.ok) {
+            const raw = await response.text();
+            console.error('❌ /api/projects vrátil chybu', response.status, raw);
+            throw new Error(`HTTP ${response.status}`);
+        }
+        state.projects = await response.json();
+            renderProjects();
+        } catch (error) {
+            console.error('Chyba pri načítaní projektov', error);
+        }
+    }
+
+    function renderProjects() {
+        const container = document.getElementById('projectsContainer');
+                container.innerHTML = '';
+                
+        if (!state.projects.length) {
+            container.innerHTML = '<div class="empty">Zatiaľ tu nie sú žiadne plány. Vytvor prvý pomocou formulára vyššie.</div>';
+                    return;
+                }
+                
+        state.projects.forEach(project => {
+            const article = document.createElement('article');
+            article.className = 'project';
+            article.innerHTML = buildProjectHTML(project);
+            container.appendChild(article);
+            attachProjectHandlers(article, project);
+        });
+    }
+
+    function buildProjectHTML(project) {
+        const parsed = parseXml(project.xmlContent);
+        return `
+                <div class="project-header">
+                <div class="project-meta">
+                    <h3>${escapeHtml(project.name)}</h3>
+                    <span>${escapeHtml(project.description || '')}</span>
+                    <span>ID projektu: #${project.id}</span>
+                    </div>
+                <div class="actions">
+                    <button class="btn" data-action="toggle">Zobraziť detaily</button>
+                    <button class="btn danger" data-action="delete">Odstrániť</button>
+                </div>
+                    </div>
+            <div class="details">
+                ${buildPlanSection('PRINCE2 plán', '🔵', parsed.prince2)}
+                ${buildPlanSection('Scrum plán', '🟢', parsed.scrum)}
+                <div class="raw-editor">
+                    <h4>✏️ Úprava XML pred exportom</h4>
+                    <textarea data-xml-editor data-project-id="${project.id}">${escapeHtml(project.xmlContent || '')}</textarea>
+                    <small>Zmeny sa uložia automaticky po opustení poľa. Pri chybe sa zobrazí upozornenie.</small>
+                            </div>
+                <div class="actions">
+                    <button class="btn" data-action="export" data-method="PRINCE2">Export PRINCE2 do Jira</button>
+                    <button class="btn" data-action="export" data-method="Scrum">Export Scrum do Jira</button>
+                        </div>
+                ${buildJiraLinks(project.id)}
+            </div>`;
+    }
+
+    function attachProjectHandlers(article, project) {
+        const details = article.querySelector('.details');
+        article.querySelector('[data-action="toggle"]').addEventListener('click', () => {
+            details.classList.toggle('active');
+        });
+        article.querySelector('[data-action="delete"]').addEventListener('click', async () => {
+            if (!confirm('Naozaj chceš zmazať tento projekt?')) return;
+            try {
+                await fetch(`/api/projects/${project.id}`, { method: 'DELETE' });
+                delete jiraExports[project.id];
+                localStorage.setItem('jiraExports', JSON.stringify(jiraExports));
+                await loadProjects();
+                alert('✅ Projekt bol zmazaný.');
+            } catch (error) {
+                console.error(error);
+                alert('❌ Projekt sa nepodarilo zmazať.');
+            }
+        });
+        article.querySelectorAll('[data-action="export"]').forEach(button => {
+            button.addEventListener('click', () => exportProject(project, button.dataset.method));
+        });
+        const xmlEditor = article.querySelector('[data-xml-editor]');
+        if (xmlEditor) {
+            xmlEditor.addEventListener('blur', async () => {
+                const newValue = xmlEditor.value.trim();
+                if (!newValue || newValue === (project.xmlContent || '').trim()) {
+                    return;
+                }
+                try {
+                    await saveProjectXml(project, newValue);
+                    alert('✅ Úpravy XML boli uložené.');
+                    await loadProjects();
+                } catch (error) {
+                    console.error('❌ Nepodarilo sa uložiť XML', error);
+                    alert('❌ Uloženie zlyhalo. Skontroluj formát XML.');
+                }
+            });
+        }
+
+        // Обработчики для редактируемых полей
+        article.querySelectorAll('.editable[contenteditable="true"]').forEach(element => {
+            element.addEventListener('blur', async () => {
+                const field = element.dataset.field;
+                const tag = element.dataset.tag;
+                const stageId = element.dataset.stageId;
+                const newValue = element.textContent.trim();
+                
+                if (!field || !tag) return;
+                
+                try {
+                    const updatedXml = updateXmlField(project.xmlContent, tag, stageId, field, newValue);
+                    if (updatedXml) {
+                        await saveProjectXml(project, updatedXml);
+                        console.log(`✅ Pole ${field} bolo aktualizované.`);
+                    }
+                } catch (error) {
+                    console.error('❌ Chyba pri aktualizácii poľa', error);
+                    alert('❌ Nepodarilo sa uložiť zmeny. Skúste znova.');
+                }
+            });
+        });
+    }
+
+    async function exportProject(project, methodology) {
+        if (!confirm(`Exportovať ${methodology} plán do Jira?`)) return;
+        setLoading(true);
+        try {
+            const response = await fetch(`/api/projects/${project.id}/export-to-jira`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ methodology, projectName: project.name })
+            });
+            const result = await response.json();
+            if (result.success) {
+                if (!jiraExports[project.id]) jiraExports[project.id] = {};
+                jiraExports[project.id][methodology.toLowerCase()] = {
+                    key: result.projectKey,
+                    url: result.projectUrl
+                };
+                localStorage.setItem('jiraExports', JSON.stringify(jiraExports));
+                alert(`✅ Export úspešný. V Jira bolo vytvorených ${result.issues.length} položiek.`);
+                renderProjects();
+                } else {
+                alert(`❌ Export zlyhal: ${result.message}`);
+                }
+            } catch (error) {
+            console.error(error);
+            alert('❌ Export sa nepodaril.');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function saveProjectXml(project, xmlContent) {
+        const payload = {
+            name: project.name,
+            description: project.description,
+            xmlContent
+        };
+        const response = await fetch(`/api/projects/${project.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        if (!response.ok) {
+            const raw = await response.text();
+            throw new Error(`HTTP ${response.status}: ${raw}`);
+        }
+        const updated = await response.json();
+        project.xmlContent = updated.xmlContent;
+        project.name = updated.name;
+        project.description = updated.description;
+    }
+
+    function buildPlanSection(title, icon, node) {
+        if (!node) {
+            return `<div class="plan-section"><div class="plan-header"><h3>${icon} ${title}</h3><p>XML blok pre túto metodológiu nebol nájdený.</p></div></div>`;
+        }
+        if (node.tagName === 'PRINCE2Project') return renderPrince2Section(node, title, icon);
+        if (node.tagName === 'ScrumProject') return renderScrumSection(node, title, icon);
+        return '';
+    }
+
+    function renderPrince2Section(root, title, icon) {
+        const stages = Array.from(root.querySelectorAll('Stages > Stage'));
+        return `
+            <div class="plan-section">
+                <div class="plan-header">
+                    <h3>${icon} ${title}</h3>
+                    <p>${escapeHtml(textOf(root, 'Description') || 'Detailný PRINCE2 plán projektu.')}</p>
+                </div>
+                ${stages.map(renderStageCard).join('') || '<div class="empty">Žiadne fázy v XML.</div>'}
+            </div>`;
+    }
+
+    function renderStageCard(stage) {
+        const chips = [
+            dateRange(textOf(stage, 'StartDate'), textOf(stage, 'EndDate')),
+            optionalTag(stage, 'DueDate', 'Termín'),
+            optionalTag(stage, 'Budget', 'Rozpočet', value => `${value} €`),
+            optionalTag(stage, 'Priority', 'Priorita'),
+            optionalTag(stage, 'Assignee', 'Zodpovedný')
+        ].filter(Boolean);
+
+        const stageName = textOf(stage, 'Name') || `Fáza ${textOf(stage, 'StageID') || ''}`;
+        const stageDesc = textOf(stage, 'Description') || '';
+        return `
+            <div class="stage" data-stage-id="${textOf(stage, 'StageID')}">
+                <div class="stage-header">
+                    <h4 contenteditable="true" data-field="Name" data-tag="Stage" data-stage-id="${textOf(stage, 'StageID')}" class="editable">${escapeHtml(stageName)}</h4>
+                    <div class="chip-row">${chips.map(chip => `<span>${escapeHtml(chip)}</span>`).join('')}</div>
+                                </div>
+                <p class="description editable" contenteditable="true" data-field="Description" data-tag="Stage" data-stage-id="${textOf(stage, 'StageID')}">${escapeHtml(stageDesc)}</p>
+                ${renderSimpleList(stage, 'Outputs', 'Output', '🎁 Výstupy')}
+                ${renderSimpleList(stage, 'Risks', 'Risk', '⚠️ Riziká', formatRisk)}
+                ${renderTasks(stage, 'Tasks', 'Task', '🛠️ Úlohy', formatStageTask)}
+            </div>`;
+    }
+
+    function renderScrumSection(root, title, icon) {
+        const sprints = Array.from(root.querySelectorAll('Sprints > Sprint'));
+        return `
+            <div class="plan-section">
+                <div class="plan-header">
+                    <h3>${icon} ${title}</h3>
+                    <p>${escapeHtml(textOf(root, 'Description') || 'Scrum plán rozdelený do šprintov, epikov a user stories.')}</p>
+                </div>
+                ${sprints.map(renderSprintCard).join('') || '<div class="empty">Scrum šprinty neboli nájdené.</div>'}
+            </div>`;
+    }
+
+    function renderSprintCard(sprint) {
+        const chips = [
+            dateRange(textOf(sprint, 'StartDate'), textOf(sprint, 'EndDate')),
+            optionalTag(sprint, 'Goal', 'Cieľ'),
+            optionalTag(sprint, 'Priority', 'Priorita'),
+            optionalTag(sprint, 'Assignee', 'Scrum Master')
+        ].filter(Boolean);
+
+        const epics = Array.from(sprint.querySelectorAll('Epics > Epic'));
+
+        return `
+            <div class="sprint">
+                <div class="sprint-header">
+                    <h4>${escapeHtml(textOf(sprint, 'Name') || 'Šprint')}</h4>
+                    <div class="chip-row">${chips.map(chip => `<span>${escapeHtml(chip)}</span>`).join('')}</div>
+                                </div>
+                <p class="description">${escapeHtml(textOf(sprint, 'Description') || '')}</p>
+                ${renderSimpleList(sprint, 'Risks', 'Risk', '⚠️ Riziká šprintu', formatRisk)}
+                ${epics.length ? `<div class="list-block"><h5>🧱 Epiky</h5><div class="card-grid">${epics.map(renderEpicCard).join('')}</div></div>` : ''}
+            </div>`;
+    }
+
+    function renderEpicCard(epic) {
+        const chips = [
+            optionalTag(epic, 'Priority', 'Priorita'),
+            optionalTag(epic, 'Assignee', 'Zodpovedný'),
+            tags(textOf(epic, 'Labels'))
+        ].filter(Boolean);
+
+        const stories = Array.from(epic.querySelectorAll('Stories > Story'));
+
+        return `
+            <div class="story-card">
+                <strong>${escapeHtml(textOf(epic, 'Title') || textOf(epic, 'EpicID') || 'Epic')}</strong>
+                <p class="description">${escapeHtml(textOf(epic, 'Description') || '')}</p>
+                <div class="chips">${chips.map(chip => `<span>${escapeHtml(chip)}</span>`).join('')}</div>
+                ${stories.length ? `<div class="card-grid">${stories.map(renderStoryCard).join('')}</div>` : '<div class="description">Žiadne user stories.</div>'}
+            </div>`;
+    }
+
+    function renderStoryCard(story) {
+        const chips = [
+            optionalTag(story, 'StoryPoints', 'Body'),
+            optionalTag(story, 'DueDate', 'Termín'),
+            optionalTag(story, 'Priority', 'Priorita'),
+            optionalTag(story, 'Assignee', 'Assignee'),
+            tags(textOf(story, 'Labels'))
+        ].filter(Boolean);
+
+        const subtasks = Array.from(story.querySelectorAll('SubTasks > Task'));
+
+        return `
+            <div class="story-card">
+                <strong>${escapeHtml(textOf(story, 'Title') || textOf(story, 'ID') || 'Story')}</strong>
+                <p class="description">${escapeHtml(textOf(story, 'Description') || '')}</p>
+                <div class="chips">${chips.map(chip => `<span>${escapeHtml(chip)}</span>`).join('')}</div>
+                ${renderSimpleList(story, 'AcceptanceCriteria', 'Criterion', '✅ Kritériá prijatia', item => `• ${item.textContent.trim()}`)}
+                ${subtasks.length ? `<div class="card-grid">${subtasks.map(renderSubtaskCard).join('')}</div>` : ''}
+            </div>`;
+    }
+
+    function renderSubtaskCard(task) {
+        const chips = [
+            optionalTag(task, 'Priority', 'Priorita'),
+            optionalTag(task, 'Assignee', 'Zodpovedný')
+        ].filter(Boolean);
+        return `
+            <div class="subtask-card">
+                <strong>${escapeHtml(textOf(task, 'Title') || 'Sub-task')}</strong>
+                <p class="description">${escapeHtml(textOf(task, 'Description') || '')}</p>
+                <div class="chips">${chips.map(chip => `<span>${escapeHtml(chip)}</span>`).join('')}</div>
+            </div>`;
+    }
+
+    function renderSimpleList(node, wrapperTag, itemTag, title, formatter = item => item.textContent.trim()) {
+        const wrapper = node.querySelector(wrapperTag);
+        if (!wrapper) return '';
+        const items = Array.from(wrapper.querySelectorAll(itemTag)).map(item => formatter(item)).filter(Boolean);
+        if (!items.length) return '';
+        return `
+            <div class="list-block">
+                <h5>${title}</h5>
+                <ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+            </div>`;
+    }
+
+    function renderTasks(node, wrapperTag, itemTag, title, formatter) {
+        const wrapper = node.querySelector(wrapperTag);
+        if (!wrapper) return '';
+        const items = Array.from(wrapper.querySelectorAll(itemTag));
+        if (!items.length) return '';
+        const content = items.map(task => {
+            const text = formatter ? formatter(task) : (textOf(task, 'Description') || task.textContent || '');
+            return text ? `<li>${escapeHtml(text)}</li>` : '';
+        }).join('');
+        return `<div class="list-block"><h5>${title}</h5><ul>${content}</ul></div>`;
+    }
+
+    function formatRisk(node) {
+        const description = textOf(node, 'Description');
+        const impact = textOf(node, 'Impact');
+        const probability = textOf(node, 'Probability');
+        const mitigation = textOf(node, 'Mitigation');
+        const fallback = node.textContent.trim();
+        const parts = [
+            description || fallback,
+            impact ? `Dopad: ${impact}` : '',
+            probability ? `Pravdepodobnosť: ${probability}` : '',
+            mitigation ? `Opatrenie: ${mitigation}` : ''
+        ].filter(Boolean);
+        return parts.join(' • ');
+    }
+
+    function formatStageTask(task) {
+        const title = textOf(task, 'Title');
+        const description = textOf(task, 'Description');
+        const priority = textOf(task, 'Priority');
+        const dueDate = textOf(task, 'DueDate');
+        const assignee = textOf(task, 'Assignee');
+        const labels = textOf(task, 'Labels');
+        const pieces = [];
+        if (title) pieces.push(title);
+        if (description) pieces.push(description);
+        const meta = [
+            priority ? `Priorita: ${priority}` : '',
+            dueDate ? `Termín: ${dueDate}` : '',
+            assignee ? `Assignee: ${assignee}` : ''
+        ].filter(Boolean);
+        if (meta.length) pieces.push(meta.join(' • '));
+        if (labels) pieces.push(`Štítky: ${labels}`);
+        return pieces.join(' – ');
+    }
+
+    function buildJiraLinks(projectId) {
+        const links = jiraExports[projectId];
+        if (!links) return '';
+        const parts = [];
+        if (links.prince2) parts.push(`<a class="jira-link" target="_blank" href="${links.prince2.url}">🔗 PRINCE2: ${links.prince2.key}</a>`);
+        if (links.scrum) parts.push(`<a class="jira-link" target='_blank' href="${links.scrum.url}">🔗 Scrum: ${links.scrum.key}</a>`);
+        return parts.length ? `<div class="jira-links">${parts.join('')}</div>` : '';
+    }
+
+    function updateXmlField(xmlContent, tag, id, field, newValue) {
+        if (!xmlContent) return null;
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(xmlContent, 'text/xml');
+            const parseError = doc.querySelector('parsererror');
+            if (parseError) {
+                console.error('XML parse error:', parseError.textContent);
+                return null;
+            }
+            
+            let element = null;
+            if (tag === 'Stage') {
+                const stages = doc.querySelectorAll('Stage');
+                for (const stage of stages) {
+                    if (stage.querySelector('StageID')?.textContent === id) {
+                        element = stage;
+                        break;
+                    }
+                }
+            } else if (tag === 'Sprint') {
+                const sprints = doc.querySelectorAll('Sprint');
+                for (const sprint of sprints) {
+                    if (sprint.querySelector('SprintID')?.textContent === id) {
+                        element = sprint;
+                        break;
+                    }
+                }
+            }
+            
+            if (element) {
+                const fieldElement = element.querySelector(field);
+                if (fieldElement) {
+                    fieldElement.textContent = newValue;
+                } else {
+                    const newField = doc.createElement(field);
+                    newField.textContent = newValue;
+                    element.appendChild(newField);
+                }
+                
+                const serializer = new XMLSerializer();
+                return serializer.serializeToString(doc);
+            }
+        } catch (error) {
+            console.error('Error updating XML field:', error);
+        }
+        return null;
+    }
+
+    function parseXml(xmlContent) {
+        if (!xmlContent) return { prince2: null, scrum: null };
+        const clean = extractXml(xmlContent);
+        if (!clean) return { prince2: null, scrum: null };
+        const doc = new DOMParser().parseFromString(clean, 'text/xml');
+        if (doc.querySelector('parsererror')) return { prince2: null, scrum: null };
+        return {
+            prince2: doc.querySelector('PRINCE2Project'),
+            scrum: doc.querySelector('ScrumProject')
+        };
+    }
+
+    function extractXml(raw) {
+        let content = raw.trim();
+        if (!content) return '';
+        const lower = content.toLowerCase();
+        const start = lower.indexOf('<projectplans>');
+        const end = lower.lastIndexOf('</projectplans>');
+        if (start !== -1 && end !== -1) {
+            return content.slice(start, end + '</projectplans>'.length);
+        }
+        return content;
+    }
+
+    function textOf(node, tag) {
+        const el = node ? node.querySelector(tag) : null;
+        return el ? el.textContent.trim() : '';
+    }
+
+    function dateRange(start, end) {
+        if (!start && !end) return null;
+        if (start && end) return `${start} → ${end}`;
+        return start || end;
+    }
+
+    function optionalTag(node, tag, label, formatter = v => v) {
+        const value = textOf(node, tag);
+        if (!value) return null;
+        return `${label}: ${formatter(value)}`;
+    }
+
+    function tags(labelString) {
+        if (!labelString) return '';
+        return labelString.split(',').map(part => `#${part.trim()}`).join(' ');
+    }
+
+    function escapeHtml(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+    </script>
+</body>
+</html>
+

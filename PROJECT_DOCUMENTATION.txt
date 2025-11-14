@@ -1,0 +1,420 @@
+================================================================================
+                    AI PROJECT PLANNER - DOKUMENTÁCIA PROJEKTU
+================================================================================
+
+1. PREHĽAD PROJEKTU
+================================================================================
+
+AI Project Planner je webová aplikácia, ktorá automaticky generuje projektové 
+plány pomocou umelej inteligencie (Azure OpenAI) a exportuje ich do Atlassian Jira. 
+Aplikácia podporuje dve metodológie riadenia projektov:
+- PRINCE2 (štruktúrovaný prístup)
+- Scrum (flexibilný prístup)
+
+Ako to funguje jednoducho:
+1. Zadáte názov a popis projektu
+2. AI vygeneruje dva plány (PRINCE2 a Scrum) v XML formáte
+3. Môžete upraviť vygenerované dáta priamo na obrazovke
+4. Exportujete plán do Jira, kde sa vytvoria úlohy
+
+Aplikácia sa skladá z:
+- Backend: Spring Boot aplikácia v Jave
+- Frontend: Jednostránková webová aplikácia (HTML/CSS/JavaScript)
+- AI: Azure OpenAI API pre generovanie plánov
+- Integrácia: Jira Cloud API pre export úloh
+
+================================================================================
+2. TECHNOLÓGIE A ARCHITEKTÚRA
+================================================================================
+
+2.1 Backend (Spring Boot)
+-------------------------
+- Java 17+
+- Spring Boot 3.x
+- Spring WebFlux (WebClient pre HTTP požiadavky)
+- Spring Data JPA (pre prácu s databázou)
+- H2 Database (pamäťová databáza pre vývoj)
+- Maven (systém zostavenia)
+
+Hlavné komponenty:
+- AIPlannerApplication.java - hlavná trieda aplikácie
+- ChatController.java - REST kontrolér pre API endpointy
+- OpenAiService.java - služba pre prácu s Azure OpenAI
+- JiraService.java - služba pre prácu s Jira API
+- Project.java - JPA entita pre ukladanie projektov
+- ProjectRepository.java - repozitár pre prácu s projektmi
+
+2.2 Frontend
+------------
+- HTML5, CSS3, JavaScript (ES6+)
+- Vanilla JavaScript (bez frameworkov)
+- Responzívny dizajn
+- Tmavá téma
+
+2.3 Externé služby
+-------------------
+- Azure OpenAI API (GPT-4o)
+  - Endpoint: nastavuje sa v application.yml
+  - API Key: nastavuje sa v application.yml
+  - Deployment: gpt-4o
+  
+- Atlassian Jira Cloud API
+  - REST API v3
+  - Autentifikácia: Basic Auth (email + API token)
+  - Projekt: pevný kľúč "AIP" (nastavuje sa v application.yml)
+
+2.4 Databáza
+---------------
+- H2 Database (pamäťová)
+- Tabuľka: PROJECTS
+  - id (BIGINT, PRIMARY KEY, AUTO_INCREMENT)
+  - name (VARCHAR)
+  - description (VARCHAR)
+  - xml_content (CLOB)
+  - created_at (TIMESTAMP)
+
+================================================================================
+3. JAK TO FUNGUJE - JEDNODUCHÉ VYSVETLENIE
+================================================================================
+
+3.1 Generovanie projektového plánu
+-----------------------------------
+
+Krok za krokom:
+
+1. Používateľ zadá názov projektu a popis na webovej stránke
+   → Napríklad: "E-shop pre ekologické produkty" a popis projektu
+
+2. Frontend pošle požiadavku na server
+   → Server dostane názov a popis projektu
+
+3. Server pošle dve požiadavky do Azure OpenAI (AI)
+   → Jedna pre PRINCE2 plán, druhá pre Scrum plán
+   → AI dostane špeciálny text (prompt) s inštrukciami, ako má vygenerovať XML
+
+4. AI vygeneruje XML dokumenty
+   → PRINCE2 plán obsahuje fázy (Stages) s úlohami
+   → Scrum plán obsahuje šprinty (Sprints) s epikmi a user stories
+   → Všetko je v XML formáte, ktorý sa dá ľahko spracovať
+
+5. Server spojí oba XML dokumenty do jedného
+   → Vytvorí sa <ProjectPlans> s oboma plánmi
+
+6. Server uloží projekt do databázy
+   → Projekt sa uloží s XML obsahom
+
+7. Frontend zobrazí vygenerované plány
+   → Používateľ vidí PRINCE2 a Scrum plány na obrazovke
+   → Môže kliknúť na text a upraviť ho priamo
+
+3.2 Čo obsahuje PRINCE2 plán
+-----------------------------
+
+PRINCE2 je metodológia, ktorá rozdeľuje projekt na fázy (Stages).
+
+Každá fáza obsahuje:
+- Názov fázy (napr. "Plánovanie projektu")
+- Popis práce vo fáze
+- Termín dokončenia (DueDate)
+- Prioritu (High, Medium, Low)
+- Zodpovednú osobu (Assignee)
+- Štítky (Labels)
+- Výstupy (Outputs) - čo sa má vytvoriť
+- Riziká (Risks) - čo môže ísť zle
+- Úlohy (Tasks) - konkrétne úlohy, ktoré treba urobiť
+
+Úlohy (Tasks) sa potom vytvoria v Jira ako sub-tasky pod hlavnou fázou.
+
+3.3 Čo obsahuje Scrum plán
+---------------------------
+
+Scrum je metodológia, ktorá rozdeľuje projekt na šprinty (Sprints).
+
+Každý šprint obsahuje:
+- Názov šprintu (napr. "Sprint 1 - MVP Setup")
+- Cieľ šprintu (Goal)
+- Popis šprintu
+- Termín dokončenia
+- Prioritu a zodpovednú osobu
+- Riziká
+
+V každom šprinte sú epiky (Epics):
+- Epik je veľká funkčnosť alebo feature
+- Obsahuje user stories (používateľské príbehy)
+
+Každá user story obsahuje:
+- Názov story (napr. "Ako používateľ chcem sa prihlásiť")
+- Popis potreby
+- Story points (odhad zložitosti)
+- Kritériá prijatia (AcceptanceCriteria) - kedy je story hotová
+- Sub-tasky (SubTasks) - konkrétne úlohy na implementáciu
+
+3.4 Export do Jira
+------------------
+
+Ako to funguje:
+
+1. Používateľ klikne na tlačidlo "Export PRINCE2 do Jira" alebo "Export Scrum do Jira"
+
+2. Server načíta XML z databázy a rozparsuje ho
+   → XML sa rozoberie na jednotlivé časti (fázy, šprinty, úlohy)
+
+3. Pre každú časť sa vytvorí úloha v Jira:
+   → PRINCE2: Každá fáza (Stage) = jedna úloha v Jira
+   → PRINCE2: Každá úloha (Task) = jeden sub-task v Jira
+   → Scrum: Každý šprint = jedna úloha v Jira
+   → Scrum: Každý epik = jedna úloha v Jira
+   → Scrum: Každá user story = jedna úloha v Jira
+   → Scrum: Každý sub-task = jeden sub-task v Jira
+
+4. Server pošle požiadavky do Jira API
+   → Pre každú úlohu sa pošle HTTP POST požiadavka
+   → Jira vytvorí úlohu a vráti jej kľúč (napr. "AIP-123")
+
+5. Používateľ dostane odkaz na projekt v Jira
+   → Môže kliknúť a vidieť všetky vytvorené úlohy
+
+3.5 Čo sa prenáša do Jira
+--------------------------
+
+Z XML do Jira sa prenášajú tieto polia:
+- Názov (Name/Title) → summary (názov úlohy v Jira)
+- Popis (Description) → description (popis úlohy v Jira)
+- Termín (DueDate) → duedate (kedy má byť úloha hotová)
+- Štítky (Labels) → labels (štítky pre organizáciu)
+- Výstupy, Riziká, Ciele → súčasť description (ako text)
+
+Čo sa NEPRENÁŠA do Jira (len na zobrazenie):
+- StartDate, EndDate (používa sa len DueDate)
+- Budget (Jira API to nepodporuje)
+- Manager (Jira API to nepodporuje)
+- StoryPoints (môže sa pridať ako custom field, ale teraz sa nepoužíva)
+
+================================================================================
+4. KONFIGURÁCIA
+================================================================================
+
+4.1 application.yml
+-------------------
+
+azure:
+  openai:
+    api-key: "váš-api-key"
+    endpoint: "https://váš-zdroj.openai.azure.com"
+    deployment-name: "gpt-4o"
+
+jira:
+  site-url: "https://váš-web.atlassian.net"
+  email: "váš-email@example.com"
+  api-token: "váš-api-token"
+  project-key: "AIP"
+
+spring:
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+4.2 Ako získať Jira API Token
+-----------------------------
+1. Prejdite na https://id.atlassian.com/manage-profile/security/api-tokens
+2. Kliknite na "Create API token"
+3. Skopírujte token a vložte ho do application.yml
+
+================================================================================
+5. API ENDPOINTY
+================================================================================
+
+POST /api/generate
+-------------------
+Generuje projektový plán pomocou AI.
+
+Request:
+{
+  "name": "Názov projektu",
+  "description": "Popis projektu"
+}
+
+Response:
+{
+  "id": 1,
+  "name": "Názov projektu",
+  "description": "Popis projektu",
+  "xmlContent": "<ProjectPlans>...</ProjectPlans>"
+}
+
+GET /api/projects
+-----------------
+Získa zoznam všetkých projektov.
+
+Response:
+[
+  {
+    "id": 1,
+    "name": "Názov projektu",
+    "description": "Popis projektu",
+    "xmlContent": "<ProjectPlans>...</ProjectPlans>"
+  }
+]
+
+GET /api/projects/{id}
+-----------------------
+Získa projekt podľa ID.
+
+Response:
+{
+  "id": 1,
+  "name": "Názov projektu",
+  "description": "Popis projektu",
+  "xmlContent": "<ProjectPlans>...</ProjectPlans>"
+}
+
+PUT /api/projects/{id}
+----------------------
+Aktualizuje projekt.
+
+Request:
+{
+  "name": "Nový názov",
+  "description": "Nový popis",
+  "xmlContent": "<ProjectPlans>...</ProjectPlans>"
+}
+
+Response:
+{
+  "id": 1,
+  "name": "Nový názov",
+  "description": "Nový popis",
+  "xmlContent": "<ProjectPlans>...</ProjectPlans>"
+}
+
+DELETE /api/projects/{id}
+-------------------------
+Vymaže projekt.
+
+Response: 204 No Content
+
+POST /api/projects/{id}/export-to-jira
+---------------------------------------
+Exportuje projekt do Jira.
+
+Request:
+{
+  "methodology": "PRINCE2" alebo "Scrum",
+  "projectName": "Názov projektu"
+}
+
+Response:
+{
+  "success": true,
+  "message": "Úspešne exportovaných X úloh",
+  "issues": [
+    {
+      "key": "AIP-1",
+      "id": "12345",
+      "self": "https://web.atlassian.net/rest/api/3/issue/12345"
+    }
+  ],
+  "projectKey": "AIP",
+  "projectUrl": "https://web.atlassian.net/browse/AIP"
+}
+
+================================================================================
+6. ŠPECIÁLNE FUNKCIE
+================================================================================
+
+6.1 Spracovanie XML
+-------------------
+- Používa sa DocumentBuilderFactory pre parsovanie XML
+- Spracovanie chýb parsovania (pokus o obnovenie obrezaného XML)
+- Extrahovanie XML z odpovede OpenAI (odstránenie zbytočného textu)
+
+6.2 Formát popisu v Jira (ADF)
+---------------------------------
+Popisy sa konvertujú do Atlassian Document Format (ADF):
+{
+  "type": "doc",
+  "version": 1,
+  "content": [
+    {
+      "type": "paragraph",
+      "content": [
+        {
+          "type": "text",
+          "text": "Text riadku"
+        }
+      ]
+    }
+  ]
+}
+
+6.3 Obmedzenia bezplatnej verzie Jira Cloud
+--------------------------------------------
+- Nemožno vytvárať projekty cez API (používa sa existujúci projekt "AIP")
+- Polia priority a assignee môžu byť nedostupné (zakomentované v kóde)
+- Sub-task vyžaduje určenie parent
+
+6.4 Logovanie
+---------------
+- Všetky požiadavky na OpenAI sa logujú do priečinka logs/
+- Formát: request_YYYY-MM-DD_HH-mm-ss_prince2.log a request_YYYY-MM-DD_HH-mm-ss_scrum.log
+- Logy obsahujú prompt, odpoveď a metadáta (tokeny, model)
+
+6.5 Úprava XML
+---------------------
+- Používateľ môže upraviť XML pred exportom
+- Zmeny sa uložia do databázy cez PUT /api/projects/{id}
+- Validácia XML sa nevykonáva (možno pridať)
+
+6.6 Úprava polí priamo na obrazovke
+-----------------------------------
+- Používateľ môže kliknúť na názov alebo popis fázy/šprintu
+- Text sa stane editovateľným (contenteditable)
+- Po opustení poľa sa zmeny automaticky uložia do XML a databázy
+- Viditeľné indikátory pri hover a focus
+
+================================================================================
+7. SPUSTENIE PROJEKTU
+================================================================================
+
+1. Nainštalujte Java 17+ a Maven
+2. Nastavte application.yml (Azure OpenAI a Jira údaje)
+3. Spustite: mvn spring-boot:run
+4. Otvorte prehliadač: http://localhost:8080
+5. Zadajte názov a popis projektu
+6. Kliknite na "Vygenerovať plán"
+7. Po vygenerovaní môžete upraviť XML alebo exportovať do Jira
+
+================================================================================
+8. ŠTRUKTÚRA PROJEKTU
+================================================================================
+
+ai-planner/
+├── src/
+│   ├── main/
+│   │   ├── java/org/example/
+│   │   │   ├── AIPlannerApplication.java
+│   │   │   ├── Controller/
+│   │   │   │   └── ChatController.java
+│   │   │   ├── Service/
+│   │   │   │   ├── OpenAiService.java
+│   │   │   │   └── JiraService.java
+│   │   │   ├── Model/
+│   │   │   │   └── Project.java
+│   │   │   └── Repository/
+│   │   │       └── ProjectRepository.java
+│   │   └── resources/
+│   │       ├── application.yml
+│   │       └── static/
+│   │           └── index.html
+│   └── test/
+├── logs/ (vytvorí sa automaticky)
+├── pom.xml
+└── PROJECT_DOCUMENTATION.txt
+
+================================================================================
+KONIEC DOKUMENTÁCIE
+================================================================================
