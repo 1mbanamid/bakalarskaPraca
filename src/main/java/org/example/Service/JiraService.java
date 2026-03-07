@@ -26,12 +26,14 @@ public class JiraService {
     private final String projectKey;
     private final String siteUrl;
     private final String email;
-    
+    private final String storyPointsField;
+
     public JiraService(
         @Value("${jira.site-url}") String siteUrl,
         @Value("${jira.email}") String email,
         @Value("${jira.api-token}") String apiToken,
-        @Value("${jira.project-key}") String projectKey
+        @Value("${jira.project-key}") String projectKey,
+        @Value("${jira.custom-fields.story-points:customfield_10016}") String storyPointsField
     ) {
         String auth = email + ":" + apiToken;
         String encodedAuth = Base64.getEncoder().encodeToString(auth.getBytes(StandardCharsets.UTF_8));
@@ -45,8 +47,9 @@ public class JiraService {
         this.projectKey = projectKey;
         this.siteUrl = siteUrl;
         this.email = email;
-        
-        log.info("JiraService initialized for site: {}, email: {}", siteUrl, email);
+        this.storyPointsField = storyPointsField;
+
+        log.info("JiraService initialized for site: {}, email: {}, storyPointsField: {}", siteUrl, email, storyPointsField);
     }
     
     public Map<String, Object> exportToJira(String xmlContent, String methodology, String projectName) {
@@ -213,6 +216,8 @@ public class JiraService {
             String manager = getTextContent(stage, "Manager");
             String assignee = getTextContent(stage, "Assignee");
             String labels = getTextContent(stage, "Labels");
+            String component = getTextContent(stage, "Component");
+            String originalEstimate = getTextContent(stage, "OriginalEstimate");
             
             StringBuilder fullDescription = new StringBuilder();
             fullDescription.append("📋 PRINCE2 Stage\n\n");
@@ -282,9 +287,13 @@ public class JiraService {
             
             log.info("📤 Exportujem PRINCE2 stage: {} (ID: {}) do projektu {}", summary, stageId, projectKey);
             log.debug("   Priority: {}, Assignee: {}, Labels: {}, DueDate: {}", priority, assignee, labels, dueDate);
-            
+
+            Map<String, String> stageExtra = new HashMap<>();
+            if (!component.isEmpty()) stageExtra.put("component", component);
+            if (!originalEstimate.isEmpty()) stageExtra.put("originalEstimate", originalEstimate);
+
             Map<String, Object> issue = createJiraIssue(summary, fullDescription.toString(), "Task", projectKey,
-                priority, assignee, labels, dueDate);
+                priority, assignee, labels, dueDate, null, stageExtra.isEmpty() ? null : stageExtra);
             if (issue != null && issue.containsKey("key")) {
                 createdIssues.add(issue);
                 stageCount++;
@@ -305,21 +314,24 @@ public class JiraService {
                         taskAssignee = assignee;
                     }
                     String taskLabels = getTextContent(taskElement, "Labels");
+                    String taskEstimate = getTextContent(taskElement, "OriginalEstimate");
 
                     StringBuilder subTaskDescription = new StringBuilder();
                     subTaskDescription.append("🔧 Úloha v rámci stage ").append(summary).append("\n\n");
                     if (!taskDescription.isEmpty()) {
                         subTaskDescription.append(taskDescription).append("\n\n");
                     }
-                    if (!stageId.isEmpty()) {
-                        subTaskDescription.append("Stage ID: ").append(stageId).append("\n");
-                    }
                     if (!taskAssignee.isEmpty()) {
                         subTaskDescription.append("Navrhovaný assignee: ").append(taskAssignee).append("\n");
                     }
 
+                    Map<String, String> taskExtra = new HashMap<>();
+                    if (!component.isEmpty()) taskExtra.put("component", component);
+                    if (!taskEstimate.isEmpty()) taskExtra.put("originalEstimate", taskEstimate);
+
                     Map<String, Object> subTask = createJiraIssue(taskTitle, subTaskDescription.toString(), "Sub-task",
-                        projectKey, taskPriority, taskAssignee, taskLabels, taskDueDate, parentKey);
+                        projectKey, taskPriority, taskAssignee, taskLabels, taskDueDate, parentKey,
+                        taskExtra.isEmpty() ? null : taskExtra);
                     if (subTask != null && subTask.containsKey("key")) {
                         createdIssues.add(subTask);
                         subTaskCount++;
@@ -411,7 +423,7 @@ public class JiraService {
 
             log.info("📤 Exportujem Sprint: {} do projektu {}", name, projectKey);
             Map<String, Object> sprintIssue = createJiraIssue(name, sprintDescription.toString(), "Task", projectKey,
-                priority, assignee, labels, endDate);
+                priority, assignee, labels, endDate, null, null);
             String sprintKey = null;
             if (sprintIssue != null && sprintIssue.containsKey("key")) {
                 createdIssues.add(sprintIssue);
@@ -437,6 +449,7 @@ public class JiraService {
                 String epicPriority = getTextContent(epic, "Priority");
                 String epicAssignee = getTextContent(epic, "Assignee");
                 String epicLabels = getTextContent(epic, "Labels");
+                String epicComponent = getTextContent(epic, "Component");
 
                 StringBuilder epicDescBuilder = new StringBuilder();
                 epicDescBuilder.append("🚀 Epic v sprinte ").append(name).append("\n\n");
@@ -468,8 +481,11 @@ public class JiraService {
                     epicDescBuilder.append("\n");
                 }
 
+                Map<String, String> epicExtra = new HashMap<>();
+                if (!epicComponent.isEmpty()) epicExtra.put("component", epicComponent);
+
                 Map<String, Object> epicIssue = createJiraIssue(epicTitle, epicDescBuilder.toString(), "Task",
-                    projectKey, epicPriority, epicAssignee, epicLabels, endDate);
+                    projectKey, epicPriority, epicAssignee, epicLabels, endDate, null, epicExtra.isEmpty() ? null : epicExtra);
                 String epicKey = null;
                 if (epicIssue != null && epicIssue.containsKey("key")) {
                     createdIssues.add(epicIssue);
@@ -500,6 +516,7 @@ public class JiraService {
                     }
                     String storyAssignee = getTextContent(story, "Assignee");
                     String storyLabels = getTextContent(story, "Labels");
+                    String storyEstimate = getTextContent(story, "OriginalEstimate");
 
                     StringBuilder storyDescBuilder = new StringBuilder();
                     storyDescBuilder.append("🧩 User Story v epic ").append(epicTitle).append("\n\n");
@@ -543,8 +560,14 @@ public class JiraService {
                         storyDescBuilder.append("\n");
                     }
 
+                    Map<String, String> storyExtra = new HashMap<>();
+                    if (!storyPoints.isEmpty()) storyExtra.put("storyPoints", storyPoints);
+                    if (!epicComponent.isEmpty()) storyExtra.put("component", epicComponent);
+                    if (!storyEstimate.isEmpty()) storyExtra.put("originalEstimate", storyEstimate);
+
                     Map<String, Object> storyIssue = createJiraIssue(storyTitle, storyDescBuilder.toString(), "Task",
-                        projectKey, storyPriority, storyAssignee, storyLabels, storyDueDate);
+                        projectKey, storyPriority, storyAssignee, storyLabels, storyDueDate, null,
+                        storyExtra.isEmpty() ? null : storyExtra);
                     String storyKey = null;
             if (storyIssue != null && storyIssue.containsKey("key")) {
                 createdIssues.add(storyIssue);
@@ -572,6 +595,7 @@ public class JiraService {
                         String taskDescription = getTextContent(subTaskElement, "Description");
                         String taskPriority = getTextContent(subTaskElement, "Priority");
                         String taskAssignee = getTextContent(subTaskElement, "Assignee");
+                        String taskEstimate = getTextContent(subTaskElement, "OriginalEstimate");
                         if (taskAssignee.isEmpty()) {
                             taskAssignee = storyAssignee;
                         }
@@ -585,8 +609,13 @@ public class JiraService {
                             subTaskDescription.append("Navrhovaný assignee: ").append(taskAssignee).append("\n");
                         }
 
+                        Map<String, String> subExtra = new HashMap<>();
+                        if (!epicComponent.isEmpty()) subExtra.put("component", epicComponent);
+                        if (!taskEstimate.isEmpty()) subExtra.put("originalEstimate", taskEstimate);
+
                         Map<String, Object> subTask = createJiraIssue(taskTitle, subTaskDescription.toString(), "Sub-task",
-                            projectKey, taskPriority, taskAssignee, null, storyDueDate, storyKey);
+                            projectKey, taskPriority, taskAssignee, null, storyDueDate, storyKey,
+                            subExtra.isEmpty() ? null : subExtra);
                         if (subTask != null && subTask.containsKey("key")) {
                             createdIssues.add(subTask);
                             subTaskCount++;
@@ -614,37 +643,45 @@ public class JiraService {
     
     private Map<String, Object> createJiraIssue(String summary, String description, String issueType, String projectKey,
                                                String priority, String assignee, String labels, String dueDate) {
-        return createJiraIssue(summary, description, issueType, projectKey, priority, assignee, labels, dueDate, null);
+        return createJiraIssue(summary, description, issueType, projectKey, priority, assignee, labels, dueDate, null, null);
     }
 
     private Map<String, Object> createJiraIssue(String summary, String description, String issueType, String projectKey,
                                                String priority, String assignee, String labels, String dueDate, String parentKey) {
+        return createJiraIssue(summary, description, issueType, projectKey, priority, assignee, labels, dueDate, parentKey, null);
+    }
+
+    /**
+     * Vytvorí Jira úlohu so všetkými dostupnými poľami.
+     * @param extraFields voliteľná mapa s extra poľami: storyPoints, component, originalEstimate
+     */
+    private Map<String, Object> createJiraIssue(String summary, String description, String issueType, String projectKey,
+                                               String priority, String assignee, String labels, String dueDate,
+                                               String parentKey, Map<String, String> extraFields) {
         try {
             log.info("📝 Vytváram Jira úlohu: summary='{}', type='{}', project='{}'", summary, issueType, projectKey);
-            log.debug("   Priority: '{}', Assignee: '{}', Labels: '{}', DueDate: '{}'", priority, assignee, labels, dueDate);
-            
+            log.debug("   Priority: '{}', Labels: '{}', DueDate: '{}', Extra: {}", priority, labels, dueDate, extraFields);
+
             // Конвертируем description в ADF формат для Jira
             Map<String, Object> descriptionAdf = convertToADF(description);
-            
+
             Map<String, Object> fields = new HashMap<>();
             fields.put("project", Map.of("key", projectKey));
             fields.put("summary", summary);
             fields.put("description", descriptionAdf);
             fields.put("issuetype", Map.of("name", issueType));
-            
+
             if (parentKey != null && !parentKey.trim().isEmpty()) {
                 fields.put("parent", Map.of("key", parentKey.trim()));
             }
-            
-            // Priority убрано - в бесплатной версии Jira Cloud может быть недоступно
-            // Если нужно установить priority, это можно сделать через UI после создания задачи
-            // if (priority != null && !priority.trim().isEmpty()) { ... }
 
-            // Assignee убран - в бесплатной версии Jira Cloud может требовать специальный accountId
-            // Если нужно назначить исполнителя, это можно сделать через UI после создания задачи
-            // if (assignee != null && !assignee.trim().isEmpty()) { ... }
-            
-            // Добавляем Labels если указаны
+            // Priority — nastavíme ak je uvedená (High, Medium, Low)
+            if (priority != null && !priority.trim().isEmpty()) {
+                fields.put("priority", Map.of("name", priority.trim()));
+                log.debug("   Nastavená priority: {}", priority);
+            }
+
+            // Labels
             if (labels != null && !labels.trim().isEmpty()) {
                 try {
                     String[] labelArray = labels.split(",");
@@ -663,17 +700,42 @@ public class JiraService {
                     log.warn("   Nepodarilo sa nastaviť labels '{}': {}", labels, e.getMessage());
                 }
             }
-            
-            // Добавляем DueDate если указан (формат: YYYY-MM-DD)
+
+            // DueDate (формат: YYYY-MM-DD)
             if (dueDate != null && !dueDate.trim().isEmpty()) {
-                try {
-                    fields.put("duedate", dueDate.trim());
-                    log.debug("   Nastavený dueDate: {}", dueDate);
-                } catch (Exception e) {
-                    log.warn("   Nepodarilo sa nastaviť dueDate '{}': {}", dueDate, e.getMessage());
+                fields.put("duedate", dueDate.trim());
+                log.debug("   Nastavený dueDate: {}", dueDate);
+            }
+
+            // Extra fields: storyPoints, component, originalEstimate
+            if (extraFields != null) {
+                // Story Points — custom field (napr. customfield_10016)
+                String sp = extraFields.get("storyPoints");
+                if (sp != null && !sp.trim().isEmpty()) {
+                    try {
+                        double points = Double.parseDouble(sp.trim());
+                        fields.put(storyPointsField, points);
+                        log.debug("   Nastavené story points: {} (pole: {})", points, storyPointsField);
+                    } catch (NumberFormatException e) {
+                        log.warn("   Nepodarilo sa parsovať story points '{}': {}", sp, e.getMessage());
+                    }
+                }
+
+                // Component — vytvorí sa automaticky ak neexistuje
+                String component = extraFields.get("component");
+                if (component != null && !component.trim().isEmpty()) {
+                    fields.put("components", List.of(Map.of("name", component.trim())));
+                    log.debug("   Nastavený component: {}", component);
+                }
+
+                // Time tracking — originalEstimate (napr. "2d", "4h", "1w 2d")
+                String estimate = extraFields.get("originalEstimate");
+                if (estimate != null && !estimate.trim().isEmpty()) {
+                    fields.put("timetracking", Map.of("originalEstimate", estimate.trim()));
+                    log.debug("   Nastavený originalEstimate: {}", estimate);
                 }
             }
-            
+
             Map<String, Object> body = Map.of("fields", fields);
             
             log.debug("📤 Odosielam požiadavku na vytvorenie úlohy: {}", body);

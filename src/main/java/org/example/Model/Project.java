@@ -19,7 +19,12 @@ public class Project {
     
     @Column(columnDefinition = "TEXT")
     private String xmlContent;
-    
+
+    private String startDate;
+    private String deadline;
+    private String budget;
+    private Integer teamSize;
+
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
@@ -82,5 +87,17 @@ public class Project {
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
     }
+
+    public String getStartDate() { return startDate; }
+    public void setStartDate(String startDate) { this.startDate = startDate; }
+
+    public String getDeadline() { return deadline; }
+    public void setDeadline(String deadline) { this.deadline = deadline; }
+
+    public String getBudget() { return budget; }
+    public void setBudget(String budget) { this.budget = budget; }
+
+    public Integer getTeamSize() { return teamSize; }
+    public void setTeamSize(Integer teamSize) { this.teamSize = teamSize; }
 }
 

@@ -38,16 +38,26 @@ public class ChatController {
     public ResponseEntity<Map<String, String>> generate(@RequestBody Map<String, String> request) {
         String name = request.get("name");
         String description = request.get("description");
-        
-        String xmlResponse = openAiService.generateProjectPlan(name, description);
-        
+        String startDate = request.get("startDate");
+        String deadline = request.get("deadline");
+        String budget = request.get("budget");
+        String teamSizeStr = request.get("teamSize");
+
+        String xmlResponse = openAiService.generateProjectPlan(name, description, startDate, deadline, budget, teamSizeStr);
+
         // Сохраняем проект в БД
         Project project = new Project();
         project.setName(name);
         project.setDescription(description);
         project.setXmlContent(xmlResponse);
+        project.setStartDate(startDate);
+        project.setDeadline(deadline);
+        project.setBudget(budget);
+        if (teamSizeStr != null && !teamSizeStr.isEmpty()) {
+            try { project.setTeamSize(Integer.parseInt(teamSizeStr)); } catch (NumberFormatException ignored) {}
+        }
         projectRepository.save(project);
-        
+
         return ResponseEntity.ok(Map.of("xml", xmlResponse));
     }
 

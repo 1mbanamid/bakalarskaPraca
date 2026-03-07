@@ -30,4 +30,6 @@ jira:
     email: "${JIRA_EMAIL:your-email@example.com}"
     api-token: "${JIRA_API_TOKEN:REPLACE_ME}"
     project-key: "${JIRA_PROJECT_KEY:AIP}"
+    custom-fields:
+        story-points: "${JIRA_FIELD_STORY_POINTS:customfield_10016}"
 
