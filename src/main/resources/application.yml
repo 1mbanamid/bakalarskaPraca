@@ -3,7 +3,7 @@ server:
 
 spring:
     datasource:
-        url: jdbc:h2:mem:aiplanner
+        url: jdbc:h2:file:./data/aiplanner;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
         driverClassName: org.h2.Driver
         username: sa
         password:
@@ -21,13 +21,13 @@ spring:
 
 azure:
     openai:
-        endpoint: "${AZURE_OPENAI_ENDPOINT:https://your-resource.openai.azure.com/}"
-        api-key: "${AZURE_OPENAI_KEY:REPLACE_ME}"
+        endpoint: "${AZURE_OPENAI_ENDPOINT}"
+        api-key: "${AZURE_OPENAI_KEY}"
         deployment-name: "${AZURE_OPENAI_DEPLOYMENT:gpt-4o}"
 
 jira:
-    site-url: "${JIRA_SITE_URL:https://YOUR-ORG.atlassian.net}"
-    email: "${JIRA_EMAIL:your-email@example.com}"
-    api-token: "${JIRA_API_TOKEN:REPLACE_ME}"
+    site-url: "${JIRA_SITE_URL}"
+    email: "${JIRA_EMAIL}"
+    api-token: "${JIRA_API_TOKEN}"
     project-key: "${JIRA_PROJECT_KEY:AIP}"
 

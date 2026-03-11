@@ -17,6 +17,23 @@ import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
+/**
+ * Service for exporting project plans to Atlassian Jira.
+ * 
+ * <p>This service parses XML project plans (PRINCE2 or Scrum) and creates
+ * corresponding issues in Jira. It supports:
+ * <ul>
+ *   <li>PRINCE2: Stages as Epics, Tasks as Sub-tasks</li>
+ *   <li>Scrum: Sprints, Epics, Stories, and Sub-tasks</li>
+ * </ul>
+ * </p>
+ * 
+ * <p>The service uses a fixed project key (configured in application.yml)
+ * and does not create new projects. All issues are added to the existing project.</p>
+ * 
+ * @author AI Project Planner Team
+ * @version 1.0
+ */
 @Service
 public class JiraService {
     
@@ -27,6 +44,14 @@ public class JiraService {
     private final String siteUrl;
     private final String email;
     
+    /**
+     * Constructs a new JiraService with the provided configuration.
+     * 
+     * @param siteUrl the Jira site URL (e.g., "https://example.atlassian.net")
+     * @param email the email address for Jira authentication
+     * @param apiToken the Jira API token
+     * @param projectKey the fixed project key to use for all exports
+     */
     public JiraService(
         @Value("${jira.site-url}") String siteUrl,
         @Value("${jira.email}") String email,
@@ -49,6 +74,31 @@ public class JiraService {
         log.info("JiraService initialized for site: {}, email: {}", siteUrl, email);
     }
     
+    /**
+     * Exports a project plan to Jira based on the provided XML content and methodology.
+     * 
+     * <p>This method:
+     * <ol>
+     *   <li>Parses and cleans the XML content</li>
+     *   <li>Extracts the relevant section (PRINCE2 or Scrum)</li>
+     *   <li>Creates issues in Jira using the appropriate export method</li>
+     *   <li>Returns a result map with success status, message, created issues, and project URL</li>
+     * </ol>
+     * </p>
+     * 
+     * @param xmlContent the XML content containing the project plan
+     * @param methodology either "PRINCE2" or "Scrum"
+     * @param projectName the name of the project (used for logging)
+     * @return a map containing:
+     *   <ul>
+     *     <li>"success": boolean indicating if export was successful</li>
+     *     <li>"message": descriptive message about the result</li>
+     *     <li>"issues": list of created issue keys</li>
+     *     <li>"projectUrl": URL to the Jira project</li>
+     *     <li>"projectKey": the project key used</li>
+     *   </ul>
+     * @throws RuntimeException if XML parsing fails or export encounters errors
+     */
     public Map<String, Object> exportToJira(String xmlContent, String methodology, String projectName) {
         try {
             log.info("🚀 ========== ZAČÍNAM EXPORT DO JIRA ==========");
@@ -56,8 +106,11 @@ public class JiraService {
             log.info("📄 Dĺžka XML obsahu: {} znakov", xmlContent != null ? xmlContent.length() : 0);
             
             // Извлекаем XML из маркеров или из текста
+            if (xmlContent == null) {
+                throw new IllegalArgumentException("XML content cannot be null");
+            }
             String cleanXml = xmlContent;
-            if (xmlContent != null && xmlContent.contains("<XML_START>")) {
+            if (xmlContent.contains("<XML_START>")) {
                 log.info("🔍 Nájdené XML_START markery, extrahujem XML...");
                 int start = xmlContent.indexOf("<XML_START>") + "<XML_START>".length();
                 int end = xmlContent.indexOf("</XML_END>");
@@ -187,6 +240,16 @@ public class JiraService {
         }
     }
     
+    /**
+     * Exports PRINCE2 project stages and tasks to Jira.
+     * 
+     * <p>Each Stage is created as a Task (Epic) in Jira, and nested Tasks
+     * are created as Sub-tasks linked to their parent Stage.</p>
+     * 
+     * @param doc the parsed XML document containing PRINCE2 project data
+     * @param projectKey the Jira project key to create issues in
+     * @return a list of created issue maps (each containing "key", "id", "self")
+     */
     private List<Map<String, Object>> exportPRINCE2Tasks(Document doc, String projectKey) {
         List<Map<String, Object>> createdIssues = new ArrayList<>();
         
@@ -338,6 +401,22 @@ public class JiraService {
         return createdIssues;
     }
     
+    /**
+     * Exports Scrum project sprints, epics, stories, and tasks to Jira.
+     * 
+     * <p>Creates a hierarchical structure:
+     * <ul>
+     *   <li>Sprints as Tasks</li>
+     *   <li>Epics as Tasks</li>
+     *   <li>User Stories as Tasks</li>
+     *   <li>Sub-tasks linked to their parent Story</li>
+     * </ul>
+     * </p>
+     * 
+     * @param doc the parsed XML document containing Scrum project data
+     * @param projectKey the Jira project key to create issues in
+     * @return a list of created issue maps (each containing "key", "id", "self")
+     */
     private List<Map<String, Object>> exportScrumTasks(Document doc, String projectKey) {
         List<Map<String, Object>> createdIssues = new ArrayList<>();
         
@@ -604,6 +683,13 @@ public class JiraService {
         return createdIssues;
     }
     
+    /**
+     * Checks if an XML element is a direct child of a parent with the specified tag name.
+     * 
+     * @param element the element to check
+     * @param parentTag the expected parent tag name
+     * @return true if the element is a direct child of the specified parent tag
+     */
     private boolean isDirectChild(Element element, String parentTag) {
         if (element == null || parentTag == null) {
             return false;
@@ -612,11 +698,44 @@ public class JiraService {
         return parent instanceof Element parentElement && parentTag.equalsIgnoreCase(parentElement.getTagName());
     }
     
+    /**
+     * Creates a Jira issue without a parent (overloaded method).
+     * 
+     * @param summary the issue summary/title
+     * @param description the issue description
+     * @param issueType the issue type (e.g., "Task", "Sub-task")
+     * @param projectKey the project key
+     * @param priority the priority (not used in free Jira Cloud)
+     * @param assignee the assignee (not used in free Jira Cloud)
+     * @param labels comma-separated labels
+     * @param dueDate the due date in YYYY-MM-DD format
+     * @return a map containing "key", "id", "self" if successful, or null if failed
+     */
     private Map<String, Object> createJiraIssue(String summary, String description, String issueType, String projectKey,
                                                String priority, String assignee, String labels, String dueDate) {
         return createJiraIssue(summary, description, issueType, projectKey, priority, assignee, labels, dueDate, null);
     }
 
+    /**
+     * Creates a Jira issue via the REST API.
+     * 
+     * <p>Converts the description to Atlassian Document Format (ADF) and creates
+     * the issue in the specified project. For Sub-tasks, the parentKey must be provided.</p>
+     * 
+     * <p>Note: Priority and Assignee are not set due to limitations in free Jira Cloud.
+     * These can be set manually in the Jira UI after creation.</p>
+     * 
+     * @param summary the issue summary/title
+     * @param description the issue description (will be converted to ADF)
+     * @param issueType the issue type (e.g., "Task", "Sub-task")
+     * @param projectKey the project key
+     * @param priority the priority (not used, kept for compatibility)
+     * @param assignee the assignee (not used, kept for compatibility)
+     * @param labels comma-separated labels
+     * @param dueDate the due date in YYYY-MM-DD format
+     * @param parentKey the parent issue key (required for Sub-tasks, null for regular issues)
+     * @return a map containing "key", "id", "self" if successful, or null if failed
+     */
     private Map<String, Object> createJiraIssue(String summary, String description, String issueType, String projectKey,
                                                String priority, String assignee, String labels, String dueDate, String parentKey) {
         try {
@@ -678,7 +797,7 @@ public class JiraService {
             
             log.debug("📤 Odosielam požiadavku na vytvorenie úlohy: {}", body);
             
-            Map response = webClient.post()
+            Map<String, Object> response = webClient.post()
                 .uri("/rest/api/3/issue")
                 .bodyValue(body)
                 .retrieve()
@@ -693,7 +812,7 @@ public class JiraService {
                             .subscribe(); // Subscribe вместо block() для неблокирующего чтения
                         return clientResponse.createException();
                     })
-                .bodyToMono(Map.class)
+                .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
                 .doOnError(error -> {
                     log.error("❌ Chyba pri vytváraní Jira úlohy '{}': {} - {}", 
                         summary, error.getClass().getSimpleName(), error.getMessage());
@@ -726,9 +845,13 @@ public class JiraService {
     }
     
     /**
-     * Конвертирует текстовое описание в формат Atlassian Document Format (ADF) для Jira.
-     * Все задачи создаются через /rest/api/3/issue и добавляются в существующий проект "AIPLAN".
-     * Создание новых проектов через API не поддерживается в бесплатной версии Jira Cloud.
+     * Converts plain text description to Atlassian Document Format (ADF) for Jira.
+     * 
+     * <p>ADF is the JSON format used by Jira for rich text content. This method
+     * converts each line of text into a paragraph node in the ADF structure.</p>
+     * 
+     * @param text the plain text to convert
+     * @return a map representing the ADF document structure
      */
     private Map<String, Object> convertToADF(String text) {
         // Конвертируем текст в Atlassian Document Format (ADF)
@@ -757,6 +880,16 @@ public class JiraService {
         );
     }
     
+    /**
+     * Extracts text content from a child element with the specified tag name.
+     * 
+     * <p>Returns the trimmed text content of the first matching child element,
+     * or an empty string if not found or if an error occurs.</p>
+     * 
+     * @param parent the parent XML element to search in
+     * @param tagName the tag name of the child element
+     * @return the trimmed text content, or empty string if not found
+     */
     private String getTextContent(Element parent, String tagName) {
         try {
             NodeList nodeList = parent.getElementsByTagName(tagName);

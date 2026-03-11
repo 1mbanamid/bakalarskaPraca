@@ -37,3 +37,12 @@ build/
 ### Application Logs ###
 logs/
 *.log
+
+### Environment Variables ###
+.env
+.env.local
+
+### Local Data / Tools ###
+data/
+.claude/
+*.rar

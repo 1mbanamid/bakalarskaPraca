@@ -6,1023 +6,1430 @@
     <title>AI Project Planner</title>
     <style>
         :root {
-            --bg: #050814;
-            --surface: #101b33;
-            --surface-alt: #182447;
-            --text: #f5f8ff;
-            --muted: rgba(226, 232, 255, 0.72);
-            --accent-blue: #4f7fff;
-            --accent-green: #36c690;
-            --danger: #ff6b6b;
-            --border: rgba(130, 152, 195, 0.28);
-            --radius-lg: 20px;
-            --radius-md: 14px;
-            --radius-sm: 10px;
-            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            --bg: #0d1117;
+            --surface: #161b22;
+            --surface-2: #1c2333;
+            --surface-3: #21262d;
+            --border: #30363d;
+            --border-muted: #21262d;
+            --text: #e6edf3;
+            --muted: #8b949e;
+            --accent: #388bfd;
+            --accent-green: #3fb950;
+            --danger: #f85149;
+            --warning: #d29922;
+            --purple: #bc8cff;
+            --radius: 6px;
+            --radius-lg: 10px;
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
-            min-height: 100vh;
-            background: radial-gradient(circle at top, rgba(30, 52, 98, 0.85), var(--bg));
+            background: var(--bg);
             color: var(--text);
-            padding: clamp(24px, 5vw, 56px);
-            display: grid;
-            gap: clamp(24px, 4vw, 40px);
-        }
-
-        header {
-            display: grid;
-            gap: 24px;
-            background: linear-gradient(135deg, rgba(35, 57, 105, 0.75), rgba(13, 21, 40, 0.9));
-            border: 1px solid var(--border);
-            border-radius: var(--radius-lg);
-            padding: clamp(24px, 4vw, 40px);
-            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.45);
-            text-align: center;
-            justify-items: center;
-        }
-
-        .hero-text {
-            display: grid;
-            gap: 18px;
-            max-width: min(680px, 100%);
-        }
-
-        header h1 {
-            display: inline-flex;
-            align-items: center;
-            gap: 16px;
-            font-size: clamp(2.2rem, 4vw, 2.8rem);
-            font-weight: 700;
-            letter-spacing: -0.02em;
-        }
-
-        header h1 span {
-            display: inline-flex;
-            width: clamp(48px, 4vw, 58px);
-            height: clamp(48px, 4vw, 58px);
-            border-radius: 16px;
-            align-items: center;
-            justify-content: center;
-            background: rgba(79, 127, 255, 0.22);
-            font-size: clamp(24px, 3vw, 30px);
-        }
-
-        header p {
-            color: var(--muted);
-            line-height: 1.7;
-        }
-
-        form {
-            display: grid;
-            gap: 20px;
-            max-width: min(720px, 100%);
-            width: 100%;
-            justify-items: stretch;
-        }
-
-        .field {
-            display: grid;
-            gap: 8px;
-            width: 100%;
-        }
-
-        .field-name {
-            max-width: min(420px, 100%);
-            justify-self: center;
-        }
-
-        .field-description textarea {
-            min-height: 220px;
-        }
-
-        label {
-            font-weight: 600;
-            font-size: 0.95rem;
-            color: rgba(230, 236, 255, 0.85);
-        }
-
-        input, textarea {
-            background: rgba(13, 22, 43, 0.7);
-            border: 1px solid rgba(79, 127, 255, 0.35);
-            color: inherit;
-            font: inherit;
-            padding: 14px 16px;
-            border-radius: var(--radius-sm);
-            transition: border 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
-        }
-
-        input:focus, textarea:focus {
-            outline: none;
-            border-color: rgba(79, 127, 255, 0.7);
-            box-shadow: 0 0 0 4px rgba(79, 127, 255, 0.2);
-            transform: translateY(-1px);
-        }
-
-        textarea {
-            resize: vertical;
-        }
-
-        button[type="submit"] {
-            justify-self: center;
-            padding: 14px 32px;
-            border-radius: var(--radius-sm);
-            border: none;
-            background: linear-gradient(135deg, #4f7fff, #a855f7);
-            color: white;
-            font-weight: 600;
-            letter-spacing: 0.02em;
-            cursor: pointer;
-            box-shadow: 0 24px 55px rgba(79, 127, 255, 0.45);
-            transition: transform 0.2s ease, box-shadow 0.2s ease;
-        }
-
-        button[type="submit"]:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 28px 70px rgba(79, 127, 255, 0.55);
-        }
-
-        .banner {
-            display: none;
-            align-items: center;
-            justify-content: center;
-            gap: 12px;
-            background: rgba(79, 127, 255, 0.14);
-            border: 1px solid rgba(79, 127, 255, 0.28);
-            padding: 16px;
-            border-radius: var(--radius-md);
-            color: rgba(233, 238, 255, 0.9);
-            font-size: 0.95rem;
-        }
-
-        .banner.active { display: flex; }
-
-        main { display: grid; gap: 18px; }
-        h2 { font-size: 1.4rem; font-weight: 600; }
-
-        .empty {
-            text-align: center;
-            padding: 36px;
-            background: rgba(16, 27, 53, 0.78);
-            border-radius: var(--radius-lg);
-            border: 1px dashed var(--border);
-            color: var(--muted);
-        }
-
-        .project {
-            background: rgba(13, 22, 43, 0.85);
-            border-radius: var(--radius-lg);
-            border: 1px solid var(--border);
-            padding: clamp(20px, 3vw, 28px);
-            display: grid;
-            gap: 18px;
-            box-shadow: 0 28px 60px rgba(0, 0, 0, 0.38);
-        }
-
-        .project-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            flex-wrap: wrap;
-            gap: 18px;
-        }
-
-        .project-meta {
-            display: grid;
-            gap: 6px;
-        }
-
-        .project-meta span {
-            color: var(--muted);
-            font-size: 0.95rem;
-        }
-
-        .actions {
-            display: flex;
-            gap: 10px;
-        }
-
-        .btn {
-            padding: 10px 20px;
-            border-radius: var(--radius-sm);
-            border: 1px solid rgba(233, 238, 255, 0.16);
-            background: rgba(233, 238, 255, 0.08);
-            color: var(--text);
-            font-weight: 600;
-            cursor: pointer;
-            transition: background 0.16s ease, transform 0.16s ease;
-        }
-
-        .btn:hover {
-            background: rgba(233, 238, 255, 0.16);
-            transform: translateY(-1px);
-        }
-
-        .btn.danger {
-            border-color: rgba(255, 107, 107, 0.32);
-            background: rgba(255, 107, 107, 0.14);
-            color: #ffd5d5;
-        }
-
-        .details {
-            display: none;
-            gap: 18px;
-            background: var(--surface-alt);
-            border-radius: var(--radius-md);
-            border: 1px solid rgba(130, 152, 195, 0.25);
-            padding: clamp(18px, 3vw, 24px);
-        }
-
-        .details.active { display: grid; }
-
-        .plan-section {
-            display: grid;
-            gap: 14px;
-        }
-
-        .plan-header { display: grid; gap: 6px; }
-
-        .plan-header h3 {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            font-size: 1.15rem;
-            font-weight: 600;
-        }
-
-        .plan-header p {
-            color: var(--muted);
-            line-height: 1.6;
-        }
-
-        .stage, .sprint {
-            background: rgba(10, 18, 36, 0.72);
-            border: 1px solid rgba(130, 152, 195, 0.22);
-            border-radius: var(--radius-sm);
-            padding: 16px;
-            display: grid;
-            gap: 12px;
-        }
-
-        .stage-header, .sprint-header {
-            display: flex;
-            justify-content: space-between;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .stage-header h4, .sprint-header h4 {
-            font-size: 1.05rem;
-            font-weight: 600;
-        }
-
-        .chip-row {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            font-size: 0.84rem;
-            color: var(--muted);
-            align-items: flex-start;
-            margin-top: 4px;
-        }
-
-        .chip-row span {
-            display: inline-flex;
-            align-items: center;
-            padding: 6px 12px;
-            border-radius: 999px;
-            border: 1px solid rgba(130, 152, 195, 0.32);
-            background: rgba(130, 152, 195, 0.08);
-            line-height: 1.1;
-        }
-
-        .description {
-            color: var(--muted);
-            line-height: 1.55;
-        }
-
-        .list-block {
-            background: rgba(7, 13, 28, 0.6);
-            border: 1px solid rgba(130, 152, 195, 0.2);
-            border-radius: var(--radius-sm);
-            padding: 12px 14px;
-            display: grid;
-            gap: 8px;
-        }
-
-        .list-block h5 {
-            font-size: 0.88rem;
-            font-weight: 600;
-            color: rgba(230, 236, 255, 0.85);
-        }
-
-        .list-block ul {
-            display: grid;
-            gap: 6px;
-            color: var(--muted);
-            font-size: 0.9rem;
-            padding-left: 18px;
-        }
-
-        .card-grid {
-            display: grid;
-            gap: 12px;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-        }
-
-        .story-card, .subtask-card {
-            background: rgba(9, 16, 32, 0.65);
-            border-radius: var(--radius-sm);
-            border: 1px dashed rgba(79, 127, 255, 0.28);
-            padding: 12px 14px;
-            display: grid;
-            gap: 8px;
-        }
-
-        .chips {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            font-size: 0.85rem;
-            color: rgba(226, 232, 255, 0.82);
-            align-items: flex-start;
-            margin-top: 4px;
-        }
-
-        .chips span {
-            display: inline-flex;
-            align-items: center;
-            padding: 6px 12px;
-            border-radius: 999px;
-            border: 1px solid rgba(130, 152, 195, 0.32);
-            background: rgba(130, 152, 195, 0.08);
-            line-height: 1.1;
-        }
-
-        .jira-links {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-        }
-
-        .jira-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 10px 16px;
-            border-radius: var(--radius-sm);
-            border: 1px solid rgba(79, 127, 255, 0.35);
-            background: rgba(79, 127, 255, 0.18);
-            color: var(--text);
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-
-        .raw-editor {
-            display: grid;
-            gap: 8px;
-            margin-top: 18px;
-            background: rgba(8, 16, 32, 0.6);
-            border: 1px solid rgba(130, 152, 195, 0.25);
-            border-radius: var(--radius-sm);
-            padding: 16px;
-        }
-
-        .raw-editor h4 {
-            font-size: 0.95rem;
-            font-weight: 600;
-            color: rgba(230, 236, 255, 0.9);
-        }
-
-        .raw-editor textarea {
-            width: 100%;
-            min-height: 220px;
-            resize: vertical;
-            background: rgba(5, 12, 28, 0.85);
-            color: var(--text);
-            border: 1px solid rgba(79, 127, 255, 0.35);
-            border-radius: var(--radius-sm);
-            padding: 14px;
-            font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
-            font-size: 0.9rem;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            font-size: 14px;
             line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
         }
 
-        .raw-editor textarea:focus {
-            outline: none;
-            border-color: rgba(79, 127, 255, 0.7);
-            box-shadow: 0 0 0 3px rgba(79, 127, 255, 0.2);
+        /* ── TOPBAR ── */
+        .topbar {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 0 20px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            flex-shrink: 0;
+        }
+        .topbar-logo {
+            font-weight: 700;
+            font-size: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .topbar-logo .icon {
+            width: 28px; height: 28px;
+            background: linear-gradient(135deg, #388bfd, #bc8cff);
+            border-radius: 7px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; flex-shrink: 0;
         }
 
-        .raw-editor small {
-            color: var(--muted);
-            font-size: 0.85rem;
+        /* ── LAYOUT ── */
+        .app { display: flex; flex: 1; overflow: hidden; height: calc(100vh - 52px); }
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+            width: 280px; min-width: 280px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex; flex-direction: column;
+            overflow-y: auto;
+        }
+        .sidebar-section { padding: 14px 16px; border-bottom: 1px solid var(--border); }
+        .sidebar-section:last-child { border-bottom: none; flex: 1; }
+        .section-title {
+            font-size: 11px; font-weight: 600;
+            text-transform: uppercase; letter-spacing: .07em;
+            color: var(--muted); margin-bottom: 10px;
         }
 
-        .editable {
-            position: relative;
-            padding: 4px 8px;
-            border-radius: 4px;
-            transition: background 0.2s ease, outline 0.2s ease;
-            cursor: text;
+        /* ── FORM ── */
+        .form-group { margin-bottom: 10px; }
+        .form-label { display: block; font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 5px; }
+        input[type="text"], textarea {
+            width: 100%; background: var(--bg);
+            border: 1px solid var(--border); color: var(--text);
+            font: inherit; font-size: 13px;
+            padding: 7px 10px; border-radius: var(--radius);
+            transition: border-color .15s, box-shadow .15s;
         }
-
-        .editable:hover {
-            background: rgba(79, 127, 255, 0.1);
-            outline: 1px dashed rgba(79, 127, 255, 0.3);
+        input[type="text"]:focus, textarea:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(56,139,253,.12);
         }
+        textarea { resize: vertical; min-height: 72px; }
 
-        .editable:focus {
-            background: rgba(79, 127, 255, 0.15);
-            outline: 2px solid rgba(79, 127, 255, 0.5);
+        /* ── BUTTONS ── */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 6px; padding: 6px 14px; border-radius: var(--radius);
+            border: 1px solid var(--border); background: var(--surface-3);
+            color: var(--text); font: inherit; font-size: 13px; font-weight: 500;
+            cursor: pointer; transition: background .12s, border-color .12s;
+            white-space: nowrap;
         }
+        .btn:hover:not(:disabled) { background: var(--surface-2); border-color: #8b949e; }
+        .btn:disabled { opacity: .5; cursor: not-allowed; }
+        .btn-primary { background: var(--accent); border-color: #1f6feb; color: #fff; }
+        .btn-primary:hover:not(:disabled) { background: #1f6feb; }
+        .btn-success { background: rgba(63,185,80,.08); border-color: rgba(63,185,80,.3); color: var(--accent-green); }
+        .btn-success:hover:not(:disabled) { background: rgba(63,185,80,.16); }
+        .btn-danger { background: rgba(248,81,73,.08); border-color: rgba(248,81,73,.3); color: #f85149; }
+        .btn-danger:hover:not(:disabled) { background: rgba(248,81,73,.16); }
+        .btn-warning { background: rgba(210,153,34,.08); border-color: rgba(210,153,34,.3); color: var(--warning); }
+        .btn-warning:hover:not(:disabled) { background: rgba(210,153,34,.16); }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+        .btn-full { width: 100%; }
+        .btn-icon { width: 28px; height: 28px; padding: 0; }
 
-        .editable:empty::before {
-            content: attr(data-placeholder);
-            color: var(--muted);
-            font-style: italic;
+        /* ── RECOMMENDATION ── */
+        .rec-box {
+            display: none; background: var(--bg);
+            border: 1px solid var(--border); border-radius: var(--radius);
+            padding: 12px; margin: 8px 0; gap: 10px;
         }
+        .rec-box.active { display: grid; }
+        .rec-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .rec-label { font-size: 11px; font-weight: 600; color: var(--muted); }
+        .rec-badge { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+        .rec-badge.scrum  { background: rgba(63,185,80,.1); color: var(--accent-green); border: 1px solid rgba(63,185,80,.25); }
+        .rec-badge.prince2 { background: rgba(56,139,253,.1); color: var(--accent); border: 1px solid rgba(56,139,253,.25); }
+        .rec-reasoning { font-size: 12px; color: var(--muted); line-height: 1.5; border-left: 2px solid var(--border); padding-left: 10px; }
+        .method-selector { display: flex; gap: 6px; }
+        .method-btn {
+            flex: 1; padding: 7px 8px; border: 1px solid var(--border);
+            border-radius: var(--radius); background: var(--bg); color: var(--muted);
+            font: inherit; font-size: 12px; font-weight: 500;
+            cursor: pointer; text-align: center; transition: all .12s;
+        }
+        .method-btn.selected { background: rgba(56,139,253,.1); border-color: var(--accent); color: var(--accent); }
 
-        @media (max-width: 720px) {
-            body { padding: 18px; }
-            .actions { width: 100%; flex-direction: column; }
-            .btn { width: 100%; justify-content: center; }
+        /* ── LOADING STATE ── */
+        .loading-state {
+            display: none; align-items: center; gap: 8px;
+            padding: 8px 10px;
+            background: rgba(56,139,253,.06); border: 1px solid rgba(56,139,253,.15);
+            border-radius: var(--radius); font-size: 12px; color: var(--accent); margin-bottom: 8px;
+        }
+        .loading-state.active { display: flex; }
+        .spinner {
+            width: 13px; height: 13px;
+            border: 2px solid rgba(56,139,253,.25); border-top-color: var(--accent);
+            border-radius: 50%; animation: spin .65s linear infinite; flex-shrink: 0;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* ── PROJECT LIST ── */
+        .project-list { display: grid; gap: 2px; }
+        .project-item {
+            padding: 9px 10px; border-radius: var(--radius);
+            cursor: pointer; border: 1px solid transparent; transition: all .12s;
+        }
+        .project-item:hover { background: var(--surface-2); }
+        .project-item.active { background: rgba(56,139,253,.08); border-color: rgba(56,139,253,.25); }
+        .project-item-name { font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+        .project-item-meta { font-size: 11px; color: var(--muted); }
+
+        /* ── MAIN PANEL ── */
+        .main-panel { flex: 1; overflow-y: auto; display: flex; flex-direction: column; }
+        .main-empty {
+            flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 14px; color: var(--muted); text-align: center; padding: 48px 24px;
+        }
+        .main-empty svg { opacity: .15; }
+        .main-empty-title { font-size: 15px; font-weight: 600; color: var(--text); }
+        .main-empty-sub { font-size: 13px; }
+
+        /* ── PROJECT DETAIL ── */
+        .project-detail { display: none; flex-direction: column; flex: 1; }
+        .project-detail.active { display: flex; }
+
+        .detail-header {
+            padding: 16px 24px; border-bottom: 1px solid var(--border);
+            display: flex; align-items: flex-start; justify-content: space-between;
+            gap: 16px; background: var(--surface); flex-shrink: 0;
+        }
+        .detail-header-info { min-width: 0; flex: 1; }
+        .detail-title { font-size: 18px; font-weight: 700; margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .detail-desc { font-size: 12px; color: var(--muted); max-width: 520px; line-height: 1.5; }
+        .detail-actions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; flex-wrap: wrap; }
+
+        /* ── EDIT BANNER ── */
+        .edit-banner {
+            display: none; padding: 8px 24px;
+            background: rgba(210,153,34,.08); border-bottom: 1px solid rgba(210,153,34,.18);
+            font-size: 12px; color: #e3b341; align-items: center; gap: 8px;
+            flex-shrink: 0;
+        }
+        .edit-banner.active { display: flex; }
+
+        /* ── TABS ── */
+        .tabs {
+            display: flex; border-bottom: 1px solid var(--border);
+            background: var(--surface); padding: 0 20px; flex-shrink: 0;
+        }
+        .tab {
+            padding: 10px 14px; font-size: 13px; font-weight: 500; color: var(--muted);
+            cursor: pointer; border-bottom: 2px solid transparent;
+            transition: color .12s, border-color .12s; margin-bottom: -1px; user-select: none;
+        }
+        .tab:hover { color: var(--text); }
+        .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+        .tab-panel { display: none; padding: 20px 24px; flex: 1; }
+        .tab-panel.active { display: block; }
+
+        /* ── ACCORDION ── */
+        .accordion { border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; margin-bottom: 10px; }
+        .accordion:last-child { margin-bottom: 0; }
+        .accordion-header {
+            padding: 13px 16px; background: var(--surface);
+            display: flex; align-items: center; justify-content: space-between;
+            cursor: pointer; user-select: none; gap: 12px;
+        }
+        .accordion-header:hover { background: var(--surface-2); }
+        .accordion-left { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; }
+        .accordion-num {
+            width: 26px; height: 26px; border-radius: 50%;
+            background: rgba(56,139,253,.1); border: 1px solid rgba(56,139,253,.2);
+            color: var(--accent); font-size: 11px; font-weight: 700;
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .accordion-num.green { background: rgba(63,185,80,.1); border-color: rgba(63,185,80,.2); color: var(--accent-green); }
+        .accordion-info { min-width: 0; }
+        .accordion-title { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .accordion-sub { font-size: 11px; color: var(--muted); margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .accordion-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+        .acc-arrow { color: var(--muted); transition: transform .2s; display: flex; }
+        .accordion.open .acc-arrow { transform: rotate(90deg); }
+        .accordion-body { display: none; border-top: 1px solid var(--border); }
+        .accordion.open .accordion-body { display: block; }
+        .accordion-inner { padding: 16px; display: grid; gap: 14px; }
+
+        /* ── CHIPS ── */
+        .chip-row { display: flex; gap: 5px; flex-wrap: wrap; }
+        .chip {
+            display: inline-flex; align-items: center;
+            padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 500;
+            border: 1px solid var(--border); background: var(--surface-3); color: var(--muted);
+        }
+        .chip.blue   { background: rgba(56,139,253,.08);  border-color: rgba(56,139,253,.2);  color: #79c0ff; }
+        .chip.green  { background: rgba(63,185,80,.08);   border-color: rgba(63,185,80,.2);   color: #56d364; }
+        .chip.yellow { background: rgba(210,153,34,.08);  border-color: rgba(210,153,34,.2);  color: #e3b341; }
+        .chip.purple { background: rgba(188,140,255,.08); border-color: rgba(188,140,255,.2); color: #d2a8ff; }
+        .chip.red    { background: rgba(248,81,73,.08);   border-color: rgba(248,81,73,.2);   color: #ff7b72; }
+
+        /* ── VIEW MODE COMPONENTS ── */
+        .sec-label { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin-bottom: 7px; }
+        .desc-text { font-size: 13px; color: var(--muted); line-height: 1.6; }
+        .items-list { display: grid; gap: 5px; }
+        .list-item { padding: 7px 11px; background: var(--bg); border: 1px solid var(--border-muted); border-radius: var(--radius); font-size: 12px; color: var(--muted); line-height: 1.5; }
+        .tasks-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: 8px; }
+        .task-card { background: var(--bg); border: 1px solid var(--border-muted); border-radius: var(--radius); padding: 11px 13px; display: grid; gap: 5px; }
+        .task-title { font-size: 13px; font-weight: 600; }
+        .task-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+        .risk-item { padding: 9px 12px; background: rgba(210,153,34,.05); border: 1px solid rgba(210,153,34,.18); border-radius: var(--radius); display: grid; gap: 4px; }
+        .risk-title { font-size: 12px; font-weight: 600; color: #e3b341; }
+        .risk-note { font-size: 11px; color: var(--muted); }
+        .epic-block { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+        .epic-header { padding: 9px 12px; background: var(--surface-2); display: flex; align-items: center; justify-content: space-between; gap: 10px; cursor: pointer; user-select: none; }
+        .epic-header:hover { background: var(--surface-3); }
+        .epic-title { font-size: 13px; font-weight: 600; }
+        .epic-sub { font-size: 11px; color: var(--muted); margin-top: 1px; }
+        .epic-arrow { color: var(--muted); transition: transform .18s; display: flex; }
+        .epic-block.open .epic-arrow { transform: rotate(90deg); }
+        .epic-body { display: none; padding: 10px; border-top: 1px solid var(--border); gap: 7px; }
+        .epic-block.open .epic-body { display: grid; }
+        .story-card { background: var(--bg); border: 1px solid var(--border-muted); border-radius: var(--radius); padding: 10px 12px; display: grid; gap: 6px; }
+        .story-title { font-size: 13px; font-weight: 600; }
+        .story-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+        .criteria-list { display: grid; gap: 4px; }
+        .criteria-item { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; color: var(--muted); line-height: 1.4; }
+        .criteria-check { width: 13px; height: 13px; border: 1px solid var(--border); border-radius: 3px; flex-shrink: 0; margin-top: 1px; }
+        .subtask-list { display: grid; gap: 3px; }
+        .subtask-item { display: flex; align-items: flex-start; gap: 7px; font-size: 12px; color: var(--muted); padding: 5px 9px; background: var(--surface-2); border-radius: 5px; }
+        .subtask-item::before { content: "╰"; color: var(--border); flex-shrink: 0; }
+        .plan-empty { padding: 40px 20px; text-align: center; color: var(--muted); font-size: 13px; }
+
+        /* ── EDIT MODE COMPONENTS ── */
+        .edit-input {
+            background: var(--bg); border: 1px solid var(--border);
+            color: var(--text); font: inherit; font-size: 13px;
+            padding: 6px 10px; border-radius: var(--radius); width: 100%;
+            transition: border-color .15s;
+        }
+        .edit-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(56,139,253,.12); }
+        .edit-input.title { font-weight: 600; font-size: 14px; }
+        textarea.edit-input { resize: vertical; min-height: 56px; }
+
+        .edit-field-row { display: flex; gap: 8px; flex-wrap: wrap; }
+        .edit-field-group { display: grid; gap: 4px; flex: 1; min-width: 110px; }
+        .edit-field-label { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+
+        .add-btn {
+            display: flex; align-items: center; justify-content: center; gap: 6px;
+            padding: 8px 14px; border: 1px dashed var(--border); border-radius: var(--radius);
+            background: transparent; color: var(--muted); font: inherit; font-size: 12px;
+            cursor: pointer; width: 100%; transition: all .12s;
+        }
+        .add-btn:hover { background: var(--surface-2); color: var(--text); border-color: var(--accent); border-style: solid; }
+
+        .edit-section { display: grid; gap: 8px; }
+        .edit-card {
+            background: var(--bg); border: 1px solid var(--border-muted);
+            border-radius: var(--radius); padding: 12px; display: grid; gap: 8px;
+        }
+        .edit-card-header { display: flex; align-items: center; gap: 8px; }
+
+        /* ── JIRA LINKS ── */
+        .jira-links { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 14px; }
+        .jira-link {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 5px 12px; border-radius: var(--radius);
+            border: 1px solid rgba(56,139,253,.3); background: rgba(56,139,253,.07);
+            color: #79c0ff; text-decoration: none; font-size: 12px; font-weight: 500;
+        }
+        .jira-link:hover { background: rgba(56,139,253,.14); }
+
+        /* ── LOADING BAR ── */
+        .loading-bar { position: fixed; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg,var(--accent),var(--purple)); transform: scaleX(0); transform-origin: left; z-index: 100; }
+        .loading-bar.active { animation: lbar 1.8s ease-in-out infinite; }
+        @keyframes lbar { 0%{transform:scaleX(0);opacity:1} 70%{transform:scaleX(.75);opacity:1} 100%{transform:scaleX(1);opacity:0} }
+
+        /* ── TOASTS ── */
+        .toast-wrap { position: fixed; bottom: 18px; right: 18px; display: grid; gap: 7px; z-index: 200; }
+        .toast { padding: 9px 15px; border-radius: var(--radius); font-size: 13px; font-weight: 500; box-shadow: 0 4px 20px rgba(0,0,0,.5); display: flex; align-items: center; gap: 7px; animation: toast-in .22s ease; max-width: 320px; }
+        @keyframes toast-in { from{opacity:0;transform:translateX(14px)} to{opacity:1;transform:translateX(0)} }
+        .toast.success { background: #161f16; border: 1px solid rgba(63,185,80,.3); color: #56d364; }
+        .toast.error   { background: #1f1616; border: 1px solid rgba(248,81,73,.3); color: #ff7b72; }
+        .toast.info    { background: var(--surface-2); border: 1px solid var(--border); color: var(--text); }
+
+        /* ── RESPONSIVE ── */
+        @media (max-width: 768px) {
+            .app { flex-direction: column; height: auto; overflow: visible; }
+            .main-panel { overflow: visible; }
+            .sidebar { width: 100%; min-width: 0; border-right: none; border-bottom: 1px solid var(--border); }
+            .detail-header { flex-direction: column; }
         }
     </style>
 </head>
 <body>
-        <header>
-        <div class="hero-text">
-            <h1><span>✨</span>AI Project Planner</h1>
-            <p>
-                Zadaj názov a popis projektu. Backend vygeneruje PRINCE2 aj Scrum plán v XML a frontend ich
-                zobrazí v prehľadnej podobe. Odtiaľ ich jedným klikom odošleš do Jira.
-            </p>
+
+<div class="loading-bar" id="loadingBar"></div>
+
+<nav class="topbar">
+    <div class="topbar-logo">
+        <div class="icon">✦</div>
+        AI Project Planner
+    </div>
+</nav>
+
+<div class="app">
+
+    <!-- ── SIDEBAR ── -->
+    <aside class="sidebar">
+        <div class="sidebar-section">
+            <div class="section-title">Nový projekt</div>
+            <div class="form-group">
+                <label class="form-label" for="projectName">Názov projektu</label>
+                <input type="text" id="projectName" placeholder="Napr. Inteligentné plánovanie">
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="projectDescription">Popis projektu</label>
+                <textarea id="projectDescription" placeholder="Popíš ciele a deliverables..." rows="4"></textarea>
+            </div>
+            <div id="loadingState" class="loading-state">
+                <div class="spinner"></div>
+                <span id="loadingText">Spracovávam...</span>
+            </div>
+            <button class="btn btn-full" id="getRecBtn">Získať odporúčanie AI</button>
+            <div id="recBox" class="rec-box">
+                <div class="rec-top">
+                    <span class="rec-label">Odporúčanie AI</span>
+                    <span id="recBadge" class="rec-badge"></span>
+                </div>
+                <div id="recReasoning" class="rec-reasoning"></div>
+                <div class="method-selector" style="margin-top:6px">
+                    <button class="method-btn" id="btnScrum" onclick="selectMethod('scrum')">Scrum</button>
+                    <button class="method-btn" id="btnPrince2" onclick="selectMethod('prince2')">PRINCE2</button>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-full" id="generateBtn" style="display:none;margin-top:8px" onclick="onGenerate()">
+                Vygenerovať plán
+            </button>
         </div>
-            <form id="projectForm">
-            <div class="field field-name">
-                <label for="projectName">Názov témy</label>
-                <input id="projectName" name="name" type="text" placeholder="Napr. Inteligentné plánovanie rozpočtu" required>
-                </div>
-            <div class="field field-description">
-                <label for="projectDescription">Popis témy</label>
-                <textarea id="projectDescription" name="description" placeholder="Stručne popíš ciele, prínosy a očakávané deliverables projektu." required rows="6"></textarea>
-                </div>
-            <button type="submit">Vygenerovať plán</button>
-            </form>
-    </header>
 
-    <div id="loadingBanner" class="banner">⏳ Generujem plán... môže to chvíľku trvať.</div>
+        <div class="sidebar-section">
+            <div class="section-title">Projekty</div>
+            <div class="project-list" id="projectList">
+                <div style="font-size:12px;color:var(--muted)">Žiadne projekty</div>
+            </div>
+        </div>
+    </aside>
 
-    <main>
-        <h2>Uložené projekty</h2>
-        <div id="projectsContainer"></div>
+    <!-- ── MAIN PANEL ── -->
+    <main class="main-panel" id="mainPanel">
+
+        <div class="main-empty" id="mainEmpty">
+            <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+            </svg>
+            <div>
+                <div class="main-empty-title">Vyber projekt zo zoznamu</div>
+                <div class="main-empty-sub">alebo vytvor nový pomocou formulára vľavo</div>
+            </div>
+        </div>
+
+        <div class="project-detail" id="projectDetail">
+
+            <div class="detail-header">
+                <div class="detail-header-info">
+                    <div class="detail-title" id="detailTitle"></div>
+                    <div class="detail-desc" id="detailDesc"></div>
+                </div>
+                <div class="detail-actions">
+                    <!-- Normal mode -->
+                    <button class="btn btn-sm btn-warning" id="editBtn" onclick="enterEditMode()">✏️ Upraviť</button>
+                    <button class="btn btn-sm" onclick="exportCurrent('PRINCE2')">Export PRINCE2 → Jira</button>
+                    <button class="btn btn-sm" onclick="exportCurrent('Scrum')">Export Scrum → Jira</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteCurrent()">Odstrániť</button>
+                    <!-- Edit mode -->
+                    <button class="btn btn-sm btn-success" id="saveEditsBtn" style="display:none" onclick="saveEdits()">✓ Uložiť zmeny</button>
+                    <button class="btn btn-sm" id="cancelEditBtn" style="display:none" onclick="cancelEditMode()">Zrušiť</button>
+                </div>
+            </div>
+
+            <div class="edit-banner" id="editBanner">
+                ✏️ Režim úprav — klikni priamo do textu a uprav čo potrebuješ
+            </div>
+
+            <div class="tabs">
+                <div class="tab active" data-tab="prince2" onclick="switchTab('prince2')">🔵 PRINCE2</div>
+                <div class="tab" data-tab="scrum" onclick="switchTab('scrum')">🟢 Scrum</div>
+                <div id="jiraLinksTab" class="jira-links" style="padding:0 20px;align-self:center"></div>
+            </div>
+
+            <div class="tab-panel active" id="tab-prince2">
+                <div id="prince2Content" class="plan-empty">Načítavam...</div>
+            </div>
+
+            <div class="tab-panel" id="tab-scrum">
+                <div id="scrumContent" class="plan-empty">Načítavam...</div>
+            </div>
+
+        </div>
     </main>
+</div>
 
-    <script>
-    const jiraExports = JSON.parse(localStorage.getItem('jiraExports') || '{}');
-    const state = { projects: [] };
+<div class="toast-wrap" id="toastWrap"></div>
 
-    document.getElementById('projectForm').addEventListener('submit', onSubmit);
-    loadProjects();
+<script>
+const jiraExports = JSON.parse(localStorage.getItem('jiraExports') || '{}');
+const state = {
+    projects: [],
+    activeId: null,
+    selectedMethod: null,
+    editMode: false,
+    xmlDoc: null
+};
 
-    async function onSubmit(event) {
-        event.preventDefault();
-        const name = document.getElementById('projectName').value.trim();
-        const description = document.getElementById('projectDescription').value.trim();
-        if (!name || !description) return;
+document.getElementById('getRecBtn').addEventListener('click', getRecommendation);
+loadProjects();
 
-        setLoading(true);
-            try {
-                const response = await fetch('/api/generate', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, description })
-            });
+// ─────────────────────────────────────────
+// GENERATE FLOW
+// ─────────────────────────────────────────
+function selectMethod(m) {
+    state.selectedMethod = m;
+    document.getElementById('btnScrum').classList.toggle('selected', m === 'scrum');
+    document.getElementById('btnPrince2').classList.toggle('selected', m === 'prince2');
+    document.getElementById('generateBtn').style.display = 'block';
+}
 
-            const raw = await response.text();
-            let result = {};
-            try {
-                result = raw ? JSON.parse(raw) : {};
-            } catch (parseError) {
-                console.warn('⚠️ /api/generate – nepodarilo sa parse-nuť JSON odpoveď.', parseError);
-            }
-
-            console.log('🛰️ /api/generate response', { status: response.status, body: result || raw });
-
-            if (!response.ok) {
-                alert(`❌ Backend vrátil chybu (${response.status}). Pozri konzolu pre detaily.`);
-                await loadProjects();
-                return;
-            }
-
-            const xmlPayload = typeof result?.xml === 'string' ? result.xml.trim() : '';
-            if (!xmlPayload) {
-                console.warn('⚠️ /api/generate neobsahuje xml payload alebo je prázdny.');
-            }
-
-            await loadProjects();
-            event.target.reset();
-
-            if (xmlPayload) {
-                alert('✅ Plán bol vygenerovaný.');
-            } else {
-                alert('⚠️ OpenAI nevrátil XML odpoveď. Pozri konzolu a logy pre detaily.');
-                }
-            } catch (error) {
-            console.error('❌ Chyba pri volaní /api/generate', error);
-            alert('❌ Nepodarilo sa vygenerovať plán.');
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    function setLoading(flag) {
-        document.getElementById('loadingBanner').classList.toggle('active', flag);
-    }
-
-        async function loadProjects() {
-            try {
-                const response = await fetch('/api/projects');
-        if (!response.ok) {
-            const raw = await response.text();
-            console.error('❌ /api/projects vrátil chybu', response.status, raw);
-            throw new Error(`HTTP ${response.status}`);
-        }
-        state.projects = await response.json();
-            renderProjects();
-        } catch (error) {
-            console.error('Chyba pri načítaní projektov', error);
-        }
-    }
-
-    function renderProjects() {
-        const container = document.getElementById('projectsContainer');
-                container.innerHTML = '';
-                
-        if (!state.projects.length) {
-            container.innerHTML = '<div class="empty">Zatiaľ tu nie sú žiadne plány. Vytvor prvý pomocou formulára vyššie.</div>';
-                    return;
-                }
-                
-        state.projects.forEach(project => {
-            const article = document.createElement('article');
-            article.className = 'project';
-            article.innerHTML = buildProjectHTML(project);
-            container.appendChild(article);
-            attachProjectHandlers(article, project);
+async function getRecommendation() {
+    const name = document.getElementById('projectName').value.trim();
+    const desc = document.getElementById('projectDescription').value.trim();
+    if (!name || !desc) { toast('Vyplňte názov a popis projektu', 'error'); return; }
+    setLoading(true, 'Získavam odporúčanie...');
+    try {
+        const res = await fetch('/api/recommend', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ name, description: desc })
         });
-    }
+        if (!res.ok) throw new Error();
+        const result = await res.json();
+        const rec = (result.recommendation || 'scrum').toLowerCase();
+        const badge = document.getElementById('recBadge');
+        badge.textContent = rec === 'scrum' ? 'Scrum' : 'PRINCE2';
+        badge.className = `rec-badge ${rec}`;
+        document.getElementById('recReasoning').textContent = result.reasoning || '';
+        document.getElementById('recBox').classList.add('active');
+        selectMethod(rec);
+    } catch {
+        toast('Nepodarilo sa získať odporúčanie', 'error');
+        document.getElementById('recBox').classList.add('active');
+        selectMethod('scrum');
+    } finally { setLoading(false); }
+}
 
-    function buildProjectHTML(project) {
-        const parsed = parseXml(project.xmlContent);
-        return `
-                <div class="project-header">
-                <div class="project-meta">
-                    <h3>${escapeHtml(project.name)}</h3>
-                    <span>${escapeHtml(project.description || '')}</span>
-                    <span>ID projektu: #${project.id}</span>
+async function onGenerate() {
+    const name = document.getElementById('projectName').value.trim();
+    const desc = document.getElementById('projectDescription').value.trim();
+    const method = state.selectedMethod;
+    if (!name || !desc) { toast('Vyplňte formulár', 'error'); return; }
+    if (!method) { toast('Vyberte metodológiu', 'error'); return; }
+    setLoading(true, 'Generujem plán... môže to chvíľku trvať');
+    try {
+        const res = await fetch('/api/generate', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ name, description: desc, methodology: method })
+        });
+        let result = {};
+        try { result = await res.json(); } catch {}
+        if (!res.ok) { toast(`Chyba servera (${res.status})`, 'error'); return; }
+        toast('Plán bol vygenerovaný', 'success');
+        document.getElementById('projectName').value = '';
+        document.getElementById('projectDescription').value = '';
+        document.getElementById('recBox').classList.remove('active');
+        document.getElementById('generateBtn').style.display = 'none';
+        document.getElementById('btnScrum').classList.remove('selected');
+        document.getElementById('btnPrince2').classList.remove('selected');
+        state.selectedMethod = null;
+        await loadProjects();
+        if (state.projects.length) openProject(state.projects[0].id);
+    } catch { toast('Nepodarilo sa vygenerovať plán', 'error'); }
+    finally { setLoading(false); }
+}
+
+// ─────────────────────────────────────────
+// PROJECTS
+// ─────────────────────────────────────────
+async function loadProjects() {
+    try {
+        const res = await fetch('/api/projects');
+        if (!res.ok) throw new Error();
+        state.projects = await res.json();
+        renderProjectList();
+        if (state.activeId) {
+            const p = state.projects.find(p => p.id === state.activeId);
+            if (p) renderProjectDetail(p); else { state.activeId = null; showEmpty(); }
+        }
+    } catch (err) { console.error(err); }
+}
+
+function renderProjectList() {
+    const el = document.getElementById('projectList');
+    if (!state.projects.length) {
+        el.innerHTML = '<div style="font-size:12px;color:var(--muted)">Žiadne projekty</div>';
+        return;
+    }
+    el.innerHTML = state.projects.map(p => `
+        <div class="project-item${state.activeId === p.id ? ' active' : ''}" onclick="openProject(${p.id})">
+            <div class="project-item-name">${esc(p.name)}</div>
+            <div class="project-item-meta">#${p.id} · ${fmtDate(p.createdAt)}</div>
+        </div>`).join('');
+}
+
+function openProject(id) {
+    const p = state.projects.find(p => p.id === id);
+    if (!p) return;
+    if (state.editMode) cancelEditMode();
+    state.activeId = id;
+    renderProjectList();
+    renderProjectDetail(p);
+    switchTab('prince2');
+}
+
+function renderProjectDetail(proj) {
+    document.getElementById('mainEmpty').style.display = 'none';
+    document.getElementById('projectDetail').classList.add('active');
+    document.getElementById('detailTitle').textContent = proj.name;
+    document.getElementById('detailDesc').textContent = proj.description || '';
+    const parsed = parseXml(proj.xmlContent);
+    document.getElementById('prince2Content').innerHTML =
+        parsed.prince2 ? renderPrince2(parsed.prince2) : '<div class="plan-empty">PRINCE2 plán nebol nájdený v XML.</div>';
+    document.getElementById('scrumContent').innerHTML =
+        parsed.scrum ? renderScrum(parsed.scrum) : '<div class="plan-empty">Scrum plán nebol nájdený v XML.</div>';
+    document.getElementById('jiraLinksTab').innerHTML = buildJiraLinks(proj.id);
+}
+
+function showEmpty() {
+    document.getElementById('mainEmpty').style.display = 'flex';
+    document.getElementById('projectDetail').classList.remove('active');
+}
+
+// ─────────────────────────────────────────
+// TABS
+// ─────────────────────────────────────────
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', p.id === `tab-${name}`));
+}
+
+// ─────────────────────────────────────────
+// DELETE
+// ─────────────────────────────────────────
+async function deleteCurrent() {
+    if (!state.activeId) return;
+    if (!confirm('Naozaj chceš zmazať tento projekt?')) return;
+    try {
+        await fetch(`/api/projects/${state.activeId}`, { method: 'DELETE' });
+        delete jiraExports[state.activeId];
+        localStorage.setItem('jiraExports', JSON.stringify(jiraExports));
+        state.activeId = null;
+        showEmpty();
+        toast('Projekt bol zmazaný', 'success');
+        await loadProjects();
+    } catch { toast('Nepodarilo sa zmazať projekt', 'error'); }
+}
+
+// ─────────────────────────────────────────
+// EXPORT
+// ─────────────────────────────────────────
+async function exportCurrent(methodology) {
+    if (!state.activeId) return;
+    const proj = state.projects.find(p => p.id === state.activeId);
+    if (!proj) return;
+    if (!confirm(`Exportovať ${methodology} plán do Jira?`)) return;
+    setLoading(true, `Exportujem ${methodology}...`);
+    try {
+        const res = await fetch(`/api/projects/${state.activeId}/export-to-jira`, {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ methodology, projectName: proj.name })
+        });
+        const result = await res.json();
+        if (result.success) {
+            if (!jiraExports[state.activeId]) jiraExports[state.activeId] = {};
+            jiraExports[state.activeId][methodology.toLowerCase()] = { key: result.projectKey, url: result.projectUrl };
+            localStorage.setItem('jiraExports', JSON.stringify(jiraExports));
+            toast(`Export úspešný — ${result.issues.length} položiek`, 'success');
+            document.getElementById('jiraLinksTab').innerHTML = buildJiraLinks(state.activeId);
+        } else { toast(`Export zlyhal: ${result.message}`, 'error'); }
+    } catch { toast('Export sa nepodaril', 'error'); }
+    finally { setLoading(false); }
+}
+
+// ─────────────────────────────────────────
+// EDIT MODE
+// ─────────────────────────────────────────
+function enterEditMode() {
+    const proj = state.projects.find(p => p.id === state.activeId);
+    if (!proj) return;
+    state.xmlDoc = parseFullDoc(proj.xmlContent);
+    if (!state.xmlDoc) { toast('Nepodarilo sa načítať XML', 'error'); return; }
+    state.editMode = true;
+    updateEditUI();
+    renderEditContent();
+}
+
+function cancelEditMode() {
+    state.editMode = false;
+    state.xmlDoc = null;
+    updateEditUI();
+    const proj = state.projects.find(p => p.id === state.activeId);
+    if (proj) renderProjectDetail(proj);
+}
+
+function updateEditUI() {
+    document.getElementById('editBtn').style.display      = state.editMode ? 'none' : '';
+    document.getElementById('saveEditsBtn').style.display = state.editMode ? '' : 'none';
+    document.getElementById('cancelEditBtn').style.display = state.editMode ? '' : 'none';
+    document.getElementById('editBanner').classList.toggle('active', state.editMode);
+}
+
+function renderEditContent() {
+    if (!state.xmlDoc) return;
+    const p2 = state.xmlDoc.querySelector('PRINCE2Project');
+    const sc = state.xmlDoc.querySelector('ScrumProject');
+    document.getElementById('prince2Content').innerHTML =
+        p2 ? renderPrince2Edit(p2) : '<div class="plan-empty">PRINCE2 plán nebol nájdený.</div>';
+    document.getElementById('scrumContent').innerHTML =
+        sc ? renderScrumEdit(sc) : '<div class="plan-empty">Scrum plán nebol nájdený.</div>';
+}
+
+async function saveEdits() {
+    if (!state.activeId || !state.xmlDoc) return;
+    const proj = state.projects.find(p => p.id === state.activeId);
+    if (!proj) return;
+    collectEditsToXml();
+    const xmlContent = serializeDoc(state.xmlDoc);
+    try {
+        const res = await fetch(`/api/projects/${state.activeId}`, {
+            method: 'PUT', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ name: proj.name, description: proj.description, xmlContent })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const updated = await res.json();
+        proj.xmlContent = updated.xmlContent;
+        state.editMode = false;
+        state.xmlDoc = null;
+        updateEditUI();
+        renderProjectDetail(proj);
+        toast('Zmeny boli uložené', 'success');
+    } catch { toast('Uloženie zlyhalo', 'error'); }
+}
+
+// Collect all input values and write them into state.xmlDoc
+function collectEditsToXml() {
+    if (!state.xmlDoc) return;
+    const p2 = state.xmlDoc.querySelector('PRINCE2Project');
+    const sc = state.xmlDoc.querySelector('ScrumProject');
+
+    document.querySelectorAll('[data-edit]').forEach(el => {
+        const val = (el.tagName === 'TEXTAREA' || el.tagName === 'INPUT') ? el.value : el.innerText.trim();
+        const field    = el.dataset.edit;
+        const si       = el.dataset.si !== undefined ? +el.dataset.si : -1;
+        const ti       = el.dataset.ti !== undefined ? +el.dataset.ti : -1;
+        const spri     = el.dataset.spri !== undefined ? +el.dataset.spri : -1;
+        const ei       = el.dataset.ei !== undefined ? +el.dataset.ei : -1;
+        const sti      = el.dataset.sti !== undefined ? +el.dataset.sti : -1;
+
+        let parent = null;
+        if (si >= 0 && p2) {
+            const stage = dcArr(p2, 'Stages', 'Stage')[si];
+            if (stage) parent = ti >= 0 ? dcArr(stage, 'Tasks', 'Task')[ti] : stage;
+        } else if (spri >= 0 && sc) {
+            const sprint = dcArr(sc, 'Sprints', 'Sprint')[spri];
+            if (sprint) {
+                if (ei >= 0) {
+                    const epic = dcArr(sprint, 'Epics', 'Epic')[ei];
+                    if (epic) parent = sti >= 0 ? dcArr(epic, 'Stories', 'Story')[sti] : epic;
+                } else { parent = sprint; }
+            }
+        }
+        if (parent) setChild(parent, field, val);
+    });
+}
+
+// ── helpers for XML DOM manipulation ──
+function dcArr(parent, wrapperTag, childTag) {
+    const wrapper = directChild(parent, wrapperTag);
+    return wrapper ? directChildren(wrapper, childTag) : [];
+}
+function directChild(parent, tag) {
+    for (const c of parent.children) if (c.tagName === tag) return c;
+    return null;
+}
+function directChildren(parent, tag) {
+    return Array.from(parent.children).filter(c => c.tagName === tag);
+}
+function setChild(parent, tag, value) {
+    let el = directChild(parent, tag);
+    if (!el) { el = state.xmlDoc.createElement(tag); parent.appendChild(el); }
+    el.textContent = value;
+}
+function getChildText(parent, tag) {
+    const el = directChild(parent, tag);
+    return el ? el.textContent.trim() : '';
+}
+function makeEl(tag, text) {
+    const el = state.xmlDoc.createElement(tag);
+    if (text !== undefined) el.textContent = text;
+    return el;
+}
+
+// ─────────────────────────────────────────
+// EDIT MODE RENDERING — PRINCE2
+// ─────────────────────────────────────────
+function renderPrince2Edit(root) {
+    const stages = dcArr(root, 'Stages', 'Stage');
+    return `
+        ${stages.map((s, i) => renderStageEdit(s, i)).join('')}
+        <button class="add-btn" style="margin-top:10px" onclick="addStage()">+ Pridať fázu</button>`;
+}
+
+function renderStageEdit(stage, si) {
+    const name     = getChildText(stage, 'Name');
+    const desc     = getChildText(stage, 'Description');
+    const priority = getChildText(stage, 'Priority');
+    const dueDate  = getChildText(stage, 'DueDate');
+    const assignee = getChildText(stage, 'Assignee');
+    const budget   = getChildText(stage, 'Budget');
+    const tasks    = dcArr(stage, 'Tasks', 'Task');
+
+    return `
+    <div class="accordion open" id="stage-${si}">
+        <div class="accordion-header" onclick="this.closest('.accordion').classList.toggle('open')">
+            <div class="accordion-left">
+                <div class="accordion-num">${si + 1}</div>
+                <input class="edit-input title" type="text" style="max-width:300px"
+                    data-edit="Name" data-si="${si}"
+                    value="${esc(name)}" placeholder="Názov fázy"
+                    onclick="event.stopPropagation()">
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+                <button class="btn btn-sm btn-danger btn-icon" title="Zmazať fázu"
+                    onclick="event.stopPropagation();deleteStage(${si})">🗑</button>
+                <div class="acc-arrow">${arrowSvg()}</div>
+            </div>
+        </div>
+        <div class="accordion-body">
+            <div class="accordion-inner">
+                <div class="edit-section">
+                    <div class="edit-field-label">Popis</div>
+                    <textarea class="edit-input" rows="3"
+                        data-edit="Description" data-si="${si}"
+                        placeholder="Popis fázy">${esc(desc)}</textarea>
+                </div>
+                <div class="edit-field-row">
+                    <div class="edit-field-group">
+                        <div class="edit-field-label">Priorita</div>
+                        <input class="edit-input" type="text" data-edit="Priority" data-si="${si}" value="${esc(priority)}" placeholder="High / Medium / Low">
                     </div>
-                <div class="actions">
-                    <button class="btn" data-action="toggle">Zobraziť detaily</button>
-                    <button class="btn danger" data-action="delete">Odstrániť</button>
-                </div>
+                    <div class="edit-field-group">
+                        <div class="edit-field-label">Termín</div>
+                        <input class="edit-input" type="text" data-edit="DueDate" data-si="${si}" value="${esc(dueDate)}" placeholder="2025-12-31">
                     </div>
-            <div class="details">
-                ${buildPlanSection('PRINCE2 plán', '🔵', parsed.prince2)}
-                ${buildPlanSection('Scrum plán', '🟢', parsed.scrum)}
-                <div class="raw-editor">
-                    <h4>✏️ Úprava XML pred exportom</h4>
-                    <textarea data-xml-editor data-project-id="${project.id}">${escapeHtml(project.xmlContent || '')}</textarea>
-                    <small>Zmeny sa uložia automaticky po opustení poľa. Pri chybe sa zobrazí upozornenie.</small>
-                            </div>
-                <div class="actions">
-                    <button class="btn" data-action="export" data-method="PRINCE2">Export PRINCE2 do Jira</button>
-                    <button class="btn" data-action="export" data-method="Scrum">Export Scrum do Jira</button>
-                        </div>
-                ${buildJiraLinks(project.id)}
-            </div>`;
-    }
-
-    function attachProjectHandlers(article, project) {
-        const details = article.querySelector('.details');
-        article.querySelector('[data-action="toggle"]').addEventListener('click', () => {
-            details.classList.toggle('active');
-        });
-        article.querySelector('[data-action="delete"]').addEventListener('click', async () => {
-            if (!confirm('Naozaj chceš zmazať tento projekt?')) return;
-            try {
-                await fetch(`/api/projects/${project.id}`, { method: 'DELETE' });
-                delete jiraExports[project.id];
-                localStorage.setItem('jiraExports', JSON.stringify(jiraExports));
-                await loadProjects();
-                alert('✅ Projekt bol zmazaný.');
-            } catch (error) {
-                console.error(error);
-                alert('❌ Projekt sa nepodarilo zmazať.');
-            }
-        });
-        article.querySelectorAll('[data-action="export"]').forEach(button => {
-            button.addEventListener('click', () => exportProject(project, button.dataset.method));
-        });
-        const xmlEditor = article.querySelector('[data-xml-editor]');
-        if (xmlEditor) {
-            xmlEditor.addEventListener('blur', async () => {
-                const newValue = xmlEditor.value.trim();
-                if (!newValue || newValue === (project.xmlContent || '').trim()) {
-                    return;
-                }
-                try {
-                    await saveProjectXml(project, newValue);
-                    alert('✅ Úpravy XML boli uložené.');
-                    await loadProjects();
-                } catch (error) {
-                    console.error('❌ Nepodarilo sa uložiť XML', error);
-                    alert('❌ Uloženie zlyhalo. Skontroluj formát XML.');
-                }
-            });
-        }
-
-        // Обработчики для редактируемых полей
-        article.querySelectorAll('.editable[contenteditable="true"]').forEach(element => {
-            element.addEventListener('blur', async () => {
-                const field = element.dataset.field;
-                const tag = element.dataset.tag;
-                const stageId = element.dataset.stageId;
-                const newValue = element.textContent.trim();
-                
-                if (!field || !tag) return;
-                
-                try {
-                    const updatedXml = updateXmlField(project.xmlContent, tag, stageId, field, newValue);
-                    if (updatedXml) {
-                        await saveProjectXml(project, updatedXml);
-                        console.log(`✅ Pole ${field} bolo aktualizované.`);
-                    }
-                } catch (error) {
-                    console.error('❌ Chyba pri aktualizácii poľa', error);
-                    alert('❌ Nepodarilo sa uložiť zmeny. Skúste znova.');
-                }
-            });
-        });
-    }
-
-    async function exportProject(project, methodology) {
-        if (!confirm(`Exportovať ${methodology} plán do Jira?`)) return;
-        setLoading(true);
-        try {
-            const response = await fetch(`/api/projects/${project.id}/export-to-jira`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ methodology, projectName: project.name })
-            });
-            const result = await response.json();
-            if (result.success) {
-                if (!jiraExports[project.id]) jiraExports[project.id] = {};
-                jiraExports[project.id][methodology.toLowerCase()] = {
-                    key: result.projectKey,
-                    url: result.projectUrl
-                };
-                localStorage.setItem('jiraExports', JSON.stringify(jiraExports));
-                alert(`✅ Export úspešný. V Jira bolo vytvorených ${result.issues.length} položiek.`);
-                renderProjects();
-                } else {
-                alert(`❌ Export zlyhal: ${result.message}`);
-                }
-            } catch (error) {
-            console.error(error);
-            alert('❌ Export sa nepodaril.');
-        } finally {
-            setLoading(false);
-        }
-    }
-
-    async function saveProjectXml(project, xmlContent) {
-        const payload = {
-            name: project.name,
-            description: project.description,
-            xmlContent
-        };
-        const response = await fetch(`/api/projects/${project.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
-        if (!response.ok) {
-            const raw = await response.text();
-            throw new Error(`HTTP ${response.status}: ${raw}`);
-        }
-        const updated = await response.json();
-        project.xmlContent = updated.xmlContent;
-        project.name = updated.name;
-        project.description = updated.description;
-    }
-
-    function buildPlanSection(title, icon, node) {
-        if (!node) {
-            return `<div class="plan-section"><div class="plan-header"><h3>${icon} ${title}</h3><p>XML blok pre túto metodológiu nebol nájdený.</p></div></div>`;
-        }
-        if (node.tagName === 'PRINCE2Project') return renderPrince2Section(node, title, icon);
-        if (node.tagName === 'ScrumProject') return renderScrumSection(node, title, icon);
-        return '';
-    }
-
-    function renderPrince2Section(root, title, icon) {
-        const stages = Array.from(root.querySelectorAll('Stages > Stage'));
-        return `
-            <div class="plan-section">
-                <div class="plan-header">
-                    <h3>${icon} ${title}</h3>
-                    <p>${escapeHtml(textOf(root, 'Description') || 'Detailný PRINCE2 plán projektu.')}</p>
+                    <div class="edit-field-group">
+                        <div class="edit-field-label">Zodpovedný</div>
+                        <input class="edit-input" type="text" data-edit="Assignee" data-si="${si}" value="${esc(assignee)}" placeholder="Meno">
+                    </div>
+                    <div class="edit-field-group">
+                        <div class="edit-field-label">Rozpočet (€)</div>
+                        <input class="edit-input" type="text" data-edit="Budget" data-si="${si}" value="${esc(budget)}" placeholder="0">
+                    </div>
                 </div>
-                ${stages.map(renderStageCard).join('') || '<div class="empty">Žiadne fázy v XML.</div>'}
-            </div>`;
-    }
-
-    function renderStageCard(stage) {
-        const chips = [
-            dateRange(textOf(stage, 'StartDate'), textOf(stage, 'EndDate')),
-            optionalTag(stage, 'DueDate', 'Termín'),
-            optionalTag(stage, 'Budget', 'Rozpočet', value => `${value} €`),
-            optionalTag(stage, 'Priority', 'Priorita'),
-            optionalTag(stage, 'Assignee', 'Zodpovedný')
-        ].filter(Boolean);
-
-        const stageName = textOf(stage, 'Name') || `Fáza ${textOf(stage, 'StageID') || ''}`;
-        const stageDesc = textOf(stage, 'Description') || '';
-        return `
-            <div class="stage" data-stage-id="${textOf(stage, 'StageID')}">
-                <div class="stage-header">
-                    <h4 contenteditable="true" data-field="Name" data-tag="Stage" data-stage-id="${textOf(stage, 'StageID')}" class="editable">${escapeHtml(stageName)}</h4>
-                    <div class="chip-row">${chips.map(chip => `<span>${escapeHtml(chip)}</span>`).join('')}</div>
-                                </div>
-                <p class="description editable" contenteditable="true" data-field="Description" data-tag="Stage" data-stage-id="${textOf(stage, 'StageID')}">${escapeHtml(stageDesc)}</p>
-                ${renderSimpleList(stage, 'Outputs', 'Output', '🎁 Výstupy')}
-                ${renderSimpleList(stage, 'Risks', 'Risk', '⚠️ Riziká', formatRisk)}
-                ${renderTasks(stage, 'Tasks', 'Task', '🛠️ Úlohy', formatStageTask)}
-            </div>`;
-    }
-
-    function renderScrumSection(root, title, icon) {
-        const sprints = Array.from(root.querySelectorAll('Sprints > Sprint'));
-        return `
-            <div class="plan-section">
-                <div class="plan-header">
-                    <h3>${icon} ${title}</h3>
-                    <p>${escapeHtml(textOf(root, 'Description') || 'Scrum plán rozdelený do šprintov, epikov a user stories.')}</p>
+                <div class="edit-section">
+                    <div class="edit-field-label">Úlohy</div>
+                    <div id="tasks-${si}" class="items-list">
+                        ${tasks.map((t, ti) => renderTaskEdit(si, ti, t)).join('')}
+                    </div>
+                    <button class="add-btn" style="margin-top:6px" onclick="addTask(${si})">+ Pridať úlohu</button>
                 </div>
-                ${sprints.map(renderSprintCard).join('') || '<div class="empty">Scrum šprinty neboli nájdené.</div>'}
-            </div>`;
-    }
+            </div>
+        </div>
+    </div>`;
+}
 
-    function renderSprintCard(sprint) {
-        const chips = [
-            dateRange(textOf(sprint, 'StartDate'), textOf(sprint, 'EndDate')),
-            optionalTag(sprint, 'Goal', 'Cieľ'),
-            optionalTag(sprint, 'Priority', 'Priorita'),
-            optionalTag(sprint, 'Assignee', 'Scrum Master')
-        ].filter(Boolean);
+function renderTaskEdit(si, ti, task) {
+    const title    = getChildText(task, 'Title') || getChildText(task, 'Name');
+    const desc     = getChildText(task, 'Description');
+    const priority = getChildText(task, 'Priority');
+    const assignee = getChildText(task, 'Assignee');
+    return `
+    <div class="edit-card" id="task-${si}-${ti}">
+        <div class="edit-card-header">
+            <input class="edit-input title" type="text" style="flex:1"
+                data-edit="Title" data-si="${si}" data-ti="${ti}"
+                value="${esc(title)}" placeholder="Názov úlohy">
+            <button class="btn btn-sm btn-danger btn-icon" title="Zmazať úlohu"
+                onclick="deleteTask(${si},${ti})">🗑</button>
+        </div>
+        <textarea class="edit-input" rows="2"
+            data-edit="Description" data-si="${si}" data-ti="${ti}"
+            placeholder="Popis úlohy">${esc(desc)}</textarea>
+        <div class="edit-field-row">
+            <div class="edit-field-group">
+                <div class="edit-field-label">Priorita</div>
+                <input class="edit-input" type="text" data-edit="Priority" data-si="${si}" data-ti="${ti}" value="${esc(priority)}" placeholder="High">
+            </div>
+            <div class="edit-field-group">
+                <div class="edit-field-label">Zodpovedný</div>
+                <input class="edit-input" type="text" data-edit="Assignee" data-si="${si}" data-ti="${ti}" value="${esc(assignee)}" placeholder="Meno">
+            </div>
+        </div>
+    </div>`;
+}
 
-        const epics = Array.from(sprint.querySelectorAll('Epics > Epic'));
+// ─────────────────────────────────────────
+// EDIT MODE RENDERING — SCRUM
+// ─────────────────────────────────────────
+function renderScrumEdit(root) {
+    const sprints = dcArr(root, 'Sprints', 'Sprint');
+    return `
+        ${sprints.map((s, i) => renderSprintEdit(s, i)).join('')}
+        <button class="add-btn" style="margin-top:10px" onclick="addSprint()">+ Pridať šprint</button>`;
+}
 
-        return `
-            <div class="sprint">
-                <div class="sprint-header">
-                    <h4>${escapeHtml(textOf(sprint, 'Name') || 'Šprint')}</h4>
-                    <div class="chip-row">${chips.map(chip => `<span>${escapeHtml(chip)}</span>`).join('')}</div>
-                                </div>
-                <p class="description">${escapeHtml(textOf(sprint, 'Description') || '')}</p>
-                ${renderSimpleList(sprint, 'Risks', 'Risk', '⚠️ Riziká šprintu', formatRisk)}
-                ${epics.length ? `<div class="list-block"><h5>🧱 Epiky</h5><div class="card-grid">${epics.map(renderEpicCard).join('')}</div></div>` : ''}
-            </div>`;
-    }
+function renderSprintEdit(sprint, spri) {
+    const name = getChildText(sprint, 'Name');
+    const desc = getChildText(sprint, 'Description');
+    const goal = getChildText(sprint, 'Goal');
+    const due  = getChildText(sprint, 'DueDate');
+    const sm   = getChildText(sprint, 'Assignee') || getChildText(sprint, 'ScrumMaster');
+    const epics = dcArr(sprint, 'Epics', 'Epic');
 
-    function renderEpicCard(epic) {
-        const chips = [
-            optionalTag(epic, 'Priority', 'Priorita'),
-            optionalTag(epic, 'Assignee', 'Zodpovedný'),
-            tags(textOf(epic, 'Labels'))
-        ].filter(Boolean);
+    return `
+    <div class="accordion open" id="sprint-${spri}">
+        <div class="accordion-header" onclick="this.closest('.accordion').classList.toggle('open')">
+            <div class="accordion-left">
+                <div class="accordion-num green">${spri + 1}</div>
+                <input class="edit-input title" type="text" style="max-width:300px"
+                    data-edit="Name" data-spri="${spri}"
+                    value="${esc(name)}" placeholder="Názov šprintu"
+                    onclick="event.stopPropagation()">
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+                <button class="btn btn-sm btn-danger btn-icon" title="Zmazať šprint"
+                    onclick="event.stopPropagation();deleteSprint(${spri})">🗑</button>
+                <div class="acc-arrow">${arrowSvg()}</div>
+            </div>
+        </div>
+        <div class="accordion-body">
+            <div class="accordion-inner">
+                <div class="edit-section">
+                    <div class="edit-field-label">Popis</div>
+                    <textarea class="edit-input" rows="2"
+                        data-edit="Description" data-spri="${spri}"
+                        placeholder="Popis šprintu">${esc(desc)}</textarea>
+                </div>
+                <div class="edit-field-row">
+                    <div class="edit-field-group" style="flex:2">
+                        <div class="edit-field-label">Cieľ šprintu</div>
+                        <input class="edit-input" type="text" data-edit="Goal" data-spri="${spri}" value="${esc(goal)}" placeholder="Cieľ">
+                    </div>
+                    <div class="edit-field-group">
+                        <div class="edit-field-label">Termín</div>
+                        <input class="edit-input" type="text" data-edit="DueDate" data-spri="${spri}" value="${esc(due)}" placeholder="2025-12-31">
+                    </div>
+                    <div class="edit-field-group">
+                        <div class="edit-field-label">Scrum Master</div>
+                        <input class="edit-input" type="text" data-edit="Assignee" data-spri="${spri}" value="${esc(sm)}" placeholder="Meno">
+                    </div>
+                </div>
+                <div class="edit-section">
+                    <div class="edit-field-label">Epiky</div>
+                    <div class="items-list" id="epics-${spri}">
+                        ${epics.map((e, ei) => renderEpicEdit(spri, ei, e)).join('')}
+                    </div>
+                    <button class="add-btn" style="margin-top:6px" onclick="addEpic(${spri})">+ Pridať epic</button>
+                </div>
+            </div>
+        </div>
+    </div>`;
+}
 
-        const stories = Array.from(epic.querySelectorAll('Stories > Story'));
+function renderEpicEdit(spri, ei, epic) {
+    const title    = getChildText(epic, 'Title') || getChildText(epic, 'EpicID');
+    const desc     = getChildText(epic, 'Description');
+    const priority = getChildText(epic, 'Priority');
+    const stories  = dcArr(epic, 'Stories', 'Story');
+    return `
+    <div class="edit-card" id="epic-${spri}-${ei}">
+        <div class="edit-card-header">
+            <input class="edit-input title" type="text" style="flex:1"
+                data-edit="Title" data-spri="${spri}" data-ei="${ei}"
+                value="${esc(title)}" placeholder="Názov epiku">
+            <button class="btn btn-sm btn-danger btn-icon" onclick="deleteEpic(${spri},${ei})">🗑</button>
+        </div>
+        <textarea class="edit-input" rows="2"
+            data-edit="Description" data-spri="${spri}" data-ei="${ei}"
+            placeholder="Popis epiku">${esc(desc)}</textarea>
+        <div class="edit-field-row">
+            <div class="edit-field-group">
+                <div class="edit-field-label">Priorita</div>
+                <input class="edit-input" type="text" data-edit="Priority" data-spri="${spri}" data-ei="${ei}" value="${esc(priority)}" placeholder="High">
+            </div>
+        </div>
+        <div class="edit-section">
+            <div class="edit-field-label" style="margin-top:4px">User Stories</div>
+            <div class="items-list" id="stories-${spri}-${ei}">
+                ${stories.map((s, sti) => renderStoryEdit(spri, ei, sti, s)).join('')}
+            </div>
+            <button class="add-btn" style="margin-top:6px" onclick="addStory(${spri},${ei})">+ Pridať story</button>
+        </div>
+    </div>`;
+}
 
-        return `
-            <div class="story-card">
-                <strong>${escapeHtml(textOf(epic, 'Title') || textOf(epic, 'EpicID') || 'Epic')}</strong>
-                <p class="description">${escapeHtml(textOf(epic, 'Description') || '')}</p>
-                <div class="chips">${chips.map(chip => `<span>${escapeHtml(chip)}</span>`).join('')}</div>
-                ${stories.length ? `<div class="card-grid">${stories.map(renderStoryCard).join('')}</div>` : '<div class="description">Žiadne user stories.</div>'}
-            </div>`;
-    }
+function renderStoryEdit(spri, ei, sti, story) {
+    const title    = getChildText(story, 'Title') || getChildText(story, 'ID');
+    const desc     = getChildText(story, 'Description');
+    const points   = getChildText(story, 'StoryPoints');
+    const priority = getChildText(story, 'Priority');
+    const assignee = getChildText(story, 'Assignee');
+    return `
+    <div class="edit-card" id="story-${spri}-${ei}-${sti}" style="background:var(--surface-2)">
+        <div class="edit-card-header">
+            <input class="edit-input title" type="text" style="flex:1"
+                data-edit="Title" data-spri="${spri}" data-ei="${ei}" data-sti="${sti}"
+                value="${esc(title)}" placeholder="Názov story">
+            <button class="btn btn-sm btn-danger btn-icon" onclick="deleteStory(${spri},${ei},${sti})">🗑</button>
+        </div>
+        <textarea class="edit-input" rows="2"
+            data-edit="Description" data-spri="${spri}" data-ei="${ei}" data-sti="${sti}"
+            placeholder="Popis story">${esc(desc)}</textarea>
+        <div class="edit-field-row">
+            <div class="edit-field-group">
+                <div class="edit-field-label">Story Points</div>
+                <input class="edit-input" type="number" data-edit="StoryPoints" data-spri="${spri}" data-ei="${ei}" data-sti="${sti}" value="${esc(points)}" placeholder="5">
+            </div>
+            <div class="edit-field-group">
+                <div class="edit-field-label">Priorita</div>
+                <input class="edit-input" type="text" data-edit="Priority" data-spri="${spri}" data-ei="${ei}" data-sti="${sti}" value="${esc(priority)}" placeholder="High">
+            </div>
+            <div class="edit-field-group">
+                <div class="edit-field-label">Zodpovedný</div>
+                <input class="edit-input" type="text" data-edit="Assignee" data-spri="${spri}" data-ei="${ei}" data-sti="${sti}" value="${esc(assignee)}" placeholder="Meno">
+            </div>
+        </div>
+    </div>`;
+}
 
-    function renderStoryCard(story) {
-        const chips = [
-            optionalTag(story, 'StoryPoints', 'Body'),
-            optionalTag(story, 'DueDate', 'Termín'),
-            optionalTag(story, 'Priority', 'Priorita'),
-            optionalTag(story, 'Assignee', 'Assignee'),
-            tags(textOf(story, 'Labels'))
-        ].filter(Boolean);
+// ─────────────────────────────────────────
+// ADD / DELETE (edit mode operations)
+// ─────────────────────────────────────────
+function withRerender(fn) {
+    collectEditsToXml();
+    fn();
+    renderEditContent();
+}
 
-        const subtasks = Array.from(story.querySelectorAll('SubTasks > Task'));
+// PRINCE2
+function addStage() {
+    withRerender(() => {
+        const p2 = state.xmlDoc.querySelector('PRINCE2Project');
+        if (!p2) return;
+        let stagesEl = directChild(p2, 'Stages');
+        if (!stagesEl) { stagesEl = makeEl('Stages'); p2.appendChild(stagesEl); }
+        const n = directChildren(stagesEl, 'Stage').length + 1;
+        const s = makeEl('Stage');
+        s.appendChild(makeEl('StageID', `S${n}`));
+        s.appendChild(makeEl('Name', `Nová fáza ${n}`));
+        s.appendChild(makeEl('Description', ''));
+        s.appendChild(makeEl('Priority', 'Medium'));
+        s.appendChild(makeEl('DueDate', ''));
+        s.appendChild(makeEl('Assignee', ''));
+        s.appendChild(makeEl('Tasks', ''));
+        stagesEl.appendChild(s);
+    });
+}
+function deleteStage(si) {
+    withRerender(() => {
+        const p2 = state.xmlDoc.querySelector('PRINCE2Project');
+        const stages = dcArr(p2, 'Stages', 'Stage');
+        if (stages[si]) stages[si].remove();
+    });
+}
+function addTask(si) {
+    withRerender(() => {
+        const p2 = state.xmlDoc.querySelector('PRINCE2Project');
+        const stage = dcArr(p2, 'Stages', 'Stage')[si];
+        if (!stage) return;
+        let tasksEl = directChild(stage, 'Tasks');
+        if (!tasksEl) { tasksEl = makeEl('Tasks'); stage.appendChild(tasksEl); }
+        const n = directChildren(tasksEl, 'Task').length + 1;
+        const t = makeEl('Task');
+        t.appendChild(makeEl('Title', `Nová úloha ${n}`));
+        t.appendChild(makeEl('Description', ''));
+        t.appendChild(makeEl('Priority', 'Medium'));
+        t.appendChild(makeEl('Assignee', ''));
+        tasksEl.appendChild(t);
+    });
+}
+function deleteTask(si, ti) {
+    withRerender(() => {
+        const p2 = state.xmlDoc.querySelector('PRINCE2Project');
+        const stage = dcArr(p2, 'Stages', 'Stage')[si];
+        if (!stage) return;
+        const tasks = dcArr(stage, 'Tasks', 'Task');
+        if (tasks[ti]) tasks[ti].remove();
+    });
+}
 
-        return `
-            <div class="story-card">
-                <strong>${escapeHtml(textOf(story, 'Title') || textOf(story, 'ID') || 'Story')}</strong>
-                <p class="description">${escapeHtml(textOf(story, 'Description') || '')}</p>
-                <div class="chips">${chips.map(chip => `<span>${escapeHtml(chip)}</span>`).join('')}</div>
-                ${renderSimpleList(story, 'AcceptanceCriteria', 'Criterion', '✅ Kritériá prijatia', item => `• ${item.textContent.trim()}`)}
-                ${subtasks.length ? `<div class="card-grid">${subtasks.map(renderSubtaskCard).join('')}</div>` : ''}
-            </div>`;
-    }
+// SCRUM
+function addSprint() {
+    withRerender(() => {
+        const sc = state.xmlDoc.querySelector('ScrumProject');
+        if (!sc) return;
+        let sprintsEl = directChild(sc, 'Sprints');
+        if (!sprintsEl) { sprintsEl = makeEl('Sprints'); sc.appendChild(sprintsEl); }
+        const n = directChildren(sprintsEl, 'Sprint').length + 1;
+        const s = makeEl('Sprint');
+        s.appendChild(makeEl('SprintID', `SP${n}`));
+        s.appendChild(makeEl('Name', `Nový šprint ${n}`));
+        s.appendChild(makeEl('Description', ''));
+        s.appendChild(makeEl('Goal', ''));
+        s.appendChild(makeEl('DueDate', ''));
+        s.appendChild(makeEl('Assignee', ''));
+        s.appendChild(makeEl('Epics', ''));
+        sprintsEl.appendChild(s);
+    });
+}
+function deleteSprint(spri) {
+    withRerender(() => {
+        const sc = state.xmlDoc.querySelector('ScrumProject');
+        const sprints = dcArr(sc, 'Sprints', 'Sprint');
+        if (sprints[spri]) sprints[spri].remove();
+    });
+}
+function addEpic(spri) {
+    withRerender(() => {
+        const sc = state.xmlDoc.querySelector('ScrumProject');
+        const sprint = dcArr(sc, 'Sprints', 'Sprint')[spri];
+        if (!sprint) return;
+        let epicsEl = directChild(sprint, 'Epics');
+        if (!epicsEl) { epicsEl = makeEl('Epics'); sprint.appendChild(epicsEl); }
+        const n = directChildren(epicsEl, 'Epic').length + 1;
+        const e = makeEl('Epic');
+        e.appendChild(makeEl('EpicID', `E${n}`));
+        e.appendChild(makeEl('Title', `Nový epic ${n}`));
+        e.appendChild(makeEl('Description', ''));
+        e.appendChild(makeEl('Priority', 'Medium'));
+        e.appendChild(makeEl('Stories', ''));
+        epicsEl.appendChild(e);
+    });
+}
+function deleteEpic(spri, ei) {
+    withRerender(() => {
+        const sc = state.xmlDoc.querySelector('ScrumProject');
+        const sprint = dcArr(sc, 'Sprints', 'Sprint')[spri];
+        if (!sprint) return;
+        const epics = dcArr(sprint, 'Epics', 'Epic');
+        if (epics[ei]) epics[ei].remove();
+    });
+}
+function addStory(spri, ei) {
+    withRerender(() => {
+        const sc = state.xmlDoc.querySelector('ScrumProject');
+        const epic = dcArr(dcArr(sc, 'Sprints', 'Sprint')[spri] || {children:[]}, 'Epics', 'Epic')[ei];
+        if (!epic) return;
+        let storiesEl = directChild(epic, 'Stories');
+        if (!storiesEl) { storiesEl = makeEl('Stories'); epic.appendChild(storiesEl); }
+        const n = directChildren(storiesEl, 'Story').length + 1;
+        const s = makeEl('Story');
+        s.appendChild(makeEl('ID', `US${n}`));
+        s.appendChild(makeEl('Title', `Nová story ${n}`));
+        s.appendChild(makeEl('Description', ''));
+        s.appendChild(makeEl('StoryPoints', '3'));
+        s.appendChild(makeEl('Priority', 'Medium'));
+        s.appendChild(makeEl('Assignee', ''));
+        storiesEl.appendChild(s);
+    });
+}
+function deleteStory(spri, ei, sti) {
+    withRerender(() => {
+        const sc = state.xmlDoc.querySelector('ScrumProject');
+        const sprint = dcArr(sc, 'Sprints', 'Sprint')[spri];
+        if (!sprint) return;
+        const epic = dcArr(sprint, 'Epics', 'Epic')[ei];
+        if (!epic) return;
+        const stories = dcArr(epic, 'Stories', 'Story');
+        if (stories[sti]) stories[sti].remove();
+    });
+}
 
-    function renderSubtaskCard(task) {
-        const chips = [
-            optionalTag(task, 'Priority', 'Priorita'),
-            optionalTag(task, 'Assignee', 'Zodpovedný')
-        ].filter(Boolean);
-        return `
-            <div class="subtask-card">
-                <strong>${escapeHtml(textOf(task, 'Title') || 'Sub-task')}</strong>
-                <p class="description">${escapeHtml(textOf(task, 'Description') || '')}</p>
-                <div class="chips">${chips.map(chip => `<span>${escapeHtml(chip)}</span>`).join('')}</div>
-            </div>`;
-    }
+// ─────────────────────────────────────────
+// VIEW MODE RENDERING — PRINCE2
+// ─────────────────────────────────────────
+function renderPrince2(root) {
+    const stages = dcArr(root, 'Stages', 'Stage');
+    if (!stages.length) return '<div class="plan-empty">Žiadne fázy v XML.</div>';
+    return stages.map((s, i) => renderStageView(s, i)).join('');
+}
 
-    function renderSimpleList(node, wrapperTag, itemTag, title, formatter = item => item.textContent.trim()) {
-        const wrapper = node.querySelector(wrapperTag);
-        if (!wrapper) return '';
-        const items = Array.from(wrapper.querySelectorAll(itemTag)).map(item => formatter(item)).filter(Boolean);
-        if (!items.length) return '';
-        return `
-            <div class="list-block">
-                <h5>${title}</h5>
-                <ul>${items.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
-            </div>`;
-    }
+function renderStageView(stage, idx) {
+    const name     = tx(stage,'Name') || `Fáza ${idx+1}`;
+    const desc     = tx(stage,'Description') || '';
+    const priority = tx(stage,'Priority');
+    const dueDate  = tx(stage,'DueDate');
+    const assignee = tx(stage,'Assignee');
+    const budget   = tx(stage,'Budget');
 
-    function renderTasks(node, wrapperTag, itemTag, title, formatter) {
-        const wrapper = node.querySelector(wrapperTag);
-        if (!wrapper) return '';
-        const items = Array.from(wrapper.querySelectorAll(itemTag));
-        if (!items.length) return '';
-        const content = items.map(task => {
-            const text = formatter ? formatter(task) : (textOf(task, 'Description') || task.textContent || '');
-            return text ? `<li>${escapeHtml(text)}</li>` : '';
-        }).join('');
-        return `<div class="list-block"><h5>${title}</h5><ul>${content}</ul></div>`;
-    }
+    const chips = [
+        priority ? `<span class="chip ${priColor(priority)}">${esc(priority)}</span>` : '',
+        dueDate  ? `<span class="chip">${esc(dueDate)}</span>` : '',
+        budget   ? `<span class="chip green">${esc(budget)} €</span>` : '',
+        assignee ? `<span class="chip blue">${esc(assignee)}</span>` : '',
+    ].filter(Boolean).join('');
 
-    function formatRisk(node) {
-        const description = textOf(node, 'Description');
-        const impact = textOf(node, 'Impact');
-        const probability = textOf(node, 'Probability');
-        const mitigation = textOf(node, 'Mitigation');
-        const fallback = node.textContent.trim();
-        const parts = [
-            description || fallback,
-            impact ? `Dopad: ${impact}` : '',
-            probability ? `Pravdepodobnosť: ${probability}` : '',
-            mitigation ? `Opatrenie: ${mitigation}` : ''
-        ].filter(Boolean);
-        return parts.join(' • ');
-    }
+    const tasks   = directChildren(directChild(stage,'Tasks') || {children:[]}, 'Task');
+    const risks   = directChildren(directChild(stage,'Risks') || {children:[]}, 'Risk');
+    const outputs = directChildren(directChild(stage,'Outputs') || {children:[]}, 'Output');
 
-    function formatStageTask(task) {
-        const title = textOf(task, 'Title');
-        const description = textOf(task, 'Description');
-        const priority = textOf(task, 'Priority');
-        const dueDate = textOf(task, 'DueDate');
-        const assignee = textOf(task, 'Assignee');
-        const labels = textOf(task, 'Labels');
-        const pieces = [];
-        if (title) pieces.push(title);
-        if (description) pieces.push(description);
-        const meta = [
-            priority ? `Priorita: ${priority}` : '',
-            dueDate ? `Termín: ${dueDate}` : '',
-            assignee ? `Assignee: ${assignee}` : ''
-        ].filter(Boolean);
-        if (meta.length) pieces.push(meta.join(' • '));
-        if (labels) pieces.push(`Štítky: ${labels}`);
-        return pieces.join(' – ');
-    }
+    const tasksHtml = tasks.length ? `
+        <div><div class="sec-label">Úlohy (${tasks.length})</div>
+        <div class="tasks-grid">${tasks.map(t => {
+            const tt = tx(t,'Title')||tx(t,'Name')||'Úloha';
+            const td = tx(t,'Description');
+            const tp = tx(t,'Priority'); const ta = tx(t,'Assignee');
+            return `<div class="task-card">
+                <div class="task-title">${esc(tt)}</div>
+                ${td ? `<div class="task-desc">${esc(td)}</div>` : ''}
+                <div class="chip-row" style="margin-top:4px">
+                    ${tp ? `<span class="chip ${priColor(tp)}">${esc(tp)}</span>` : ''}
+                    ${ta ? `<span class="chip blue">${esc(ta)}</span>` : ''}
+                </div></div>`;
+        }).join('')}</div></div>` : '';
 
-    function buildJiraLinks(projectId) {
-        const links = jiraExports[projectId];
-        if (!links) return '';
-        const parts = [];
-        if (links.prince2) parts.push(`<a class="jira-link" target="_blank" href="${links.prince2.url}">🔗 PRINCE2: ${links.prince2.key}</a>`);
-        if (links.scrum) parts.push(`<a class="jira-link" target='_blank' href="${links.scrum.url}">🔗 Scrum: ${links.scrum.key}</a>`);
-        return parts.length ? `<div class="jira-links">${parts.join('')}</div>` : '';
-    }
+    const outputsHtml = outputs.length ? `
+        <div><div class="sec-label">Výstupy</div>
+        <div class="items-list">${outputs.map(o=>`<div class="list-item">${esc(o.textContent.trim())}</div>`).join('')}</div></div>` : '';
 
-    function updateXmlField(xmlContent, tag, id, field, newValue) {
-        if (!xmlContent) return null;
-        try {
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(xmlContent, 'text/xml');
-            const parseError = doc.querySelector('parsererror');
-            if (parseError) {
-                console.error('XML parse error:', parseError.textContent);
-                return null;
-            }
-            
-            let element = null;
-            if (tag === 'Stage') {
-                const stages = doc.querySelectorAll('Stage');
-                for (const stage of stages) {
-                    if (stage.querySelector('StageID')?.textContent === id) {
-                        element = stage;
-                        break;
-                    }
-                }
-            } else if (tag === 'Sprint') {
-                const sprints = doc.querySelectorAll('Sprint');
-                for (const sprint of sprints) {
-                    if (sprint.querySelector('SprintID')?.textContent === id) {
-                        element = sprint;
-                        break;
-                    }
-                }
-            }
-            
-            if (element) {
-                const fieldElement = element.querySelector(field);
-                if (fieldElement) {
-                    fieldElement.textContent = newValue;
-                } else {
-                    const newField = doc.createElement(field);
-                    newField.textContent = newValue;
-                    element.appendChild(newField);
-                }
-                
-                const serializer = new XMLSerializer();
-                return serializer.serializeToString(doc);
-            }
-        } catch (error) {
-            console.error('Error updating XML field:', error);
-        }
-        return null;
-    }
+    const risksHtml = risks.length ? `
+        <div><div class="sec-label">Riziká</div>
+        <div class="items-list">${risks.map(r=>{
+            const rd = tx(r,'Description')||r.textContent.trim();
+            const rm = tx(r,'Mitigation');
+            return `<div class="risk-item"><div class="risk-title">${esc(rd)}</div>${rm?`<div class="risk-note">Opatrenie: ${esc(rm)}</div>`:''}</div>`;
+        }).join('')}</div></div>` : '';
 
-    function parseXml(xmlContent) {
-        if (!xmlContent) return { prince2: null, scrum: null };
-        const clean = extractXml(xmlContent);
-        if (!clean) return { prince2: null, scrum: null };
-        const doc = new DOMParser().parseFromString(clean, 'text/xml');
-        if (doc.querySelector('parsererror')) return { prince2: null, scrum: null };
-        return {
-            prince2: doc.querySelector('PRINCE2Project'),
-            scrum: doc.querySelector('ScrumProject')
-        };
-    }
+    return `
+    <div class="accordion">
+        <div class="accordion-header" onclick="this.closest('.accordion').classList.toggle('open')">
+            <div class="accordion-left">
+                <div class="accordion-num">${idx+1}</div>
+                <div class="accordion-info">
+                    <div class="accordion-title">${esc(name)}</div>
+                    ${desc ? `<div class="accordion-sub">${esc(desc.substring(0,90))}${desc.length>90?'…':''}</div>` : ''}
+                </div>
+            </div>
+            <div class="accordion-right">
+                <div class="chip-row">${chips}</div>
+                <div class="acc-arrow">${arrowSvg()}</div>
+            </div>
+        </div>
+        <div class="accordion-body">
+            <div class="accordion-inner">
+                ${desc ? `<p class="desc-text">${esc(desc)}</p>` : ''}
+                ${tasksHtml}${outputsHtml}${risksHtml}
+            </div>
+        </div>
+    </div>`;
+}
 
-    function extractXml(raw) {
-        let content = raw.trim();
-        if (!content) return '';
-        const lower = content.toLowerCase();
-        const start = lower.indexOf('<projectplans>');
-        const end = lower.lastIndexOf('</projectplans>');
-        if (start !== -1 && end !== -1) {
-            return content.slice(start, end + '</projectplans>'.length);
-        }
-        return content;
-    }
+// ─────────────────────────────────────────
+// VIEW MODE RENDERING — SCRUM
+// ─────────────────────────────────────────
+function renderScrum(root) {
+    const sprints = dcArr(root, 'Sprints', 'Sprint');
+    if (!sprints.length) return '<div class="plan-empty">Žiadne šprinty v XML.</div>';
+    return sprints.map((s, i) => renderSprintView(s, i)).join('');
+}
 
-    function textOf(node, tag) {
-        const el = node ? node.querySelector(tag) : null;
-        return el ? el.textContent.trim() : '';
-    }
+function renderSprintView(sprint, idx) {
+    const name = tx(sprint,'Name') || `Sprint ${idx+1}`;
+    const desc = tx(sprint,'Description') || '';
+    const goal = tx(sprint,'Goal');
+    const due  = tx(sprint,'DueDate');
+    const sm   = tx(sprint,'Assignee') || tx(sprint,'ScrumMaster');
 
-    function dateRange(start, end) {
-        if (!start && !end) return null;
-        if (start && end) return `${start} → ${end}`;
-        return start || end;
-    }
+    const chips = [
+        goal ? `<span class="chip">${esc(goal.substring(0,40))}${goal.length>40?'…':''}</span>` : '',
+        due  ? `<span class="chip">${esc(due)}</span>` : '',
+        sm   ? `<span class="chip blue">${esc(sm)}</span>` : '',
+    ].filter(Boolean).join('');
 
-    function optionalTag(node, tag, label, formatter = v => v) {
-        const value = textOf(node, tag);
-        if (!value) return null;
-        return `${label}: ${formatter(value)}`;
-    }
+    const epics = dcArr(sprint, 'Epics', 'Epic');
+    const risks = directChildren(directChild(sprint,'Risks')||{children:[]}, 'Risk');
 
-    function tags(labelString) {
-        if (!labelString) return '';
-        return labelString.split(',').map(part => `#${part.trim()}`).join(' ');
-    }
+    const epicsHtml = epics.length ? `
+        <div><div class="sec-label">Epiky (${epics.length})</div>
+        <div class="items-list">${epics.map(e => renderEpicView(e)).join('')}</div></div>` : '';
 
-    function escapeHtml(value) {
-        return String(value || '')
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#39;');
-    }
-    </script>
+    const risksHtml = risks.length ? `
+        <div><div class="sec-label">Riziká</div>
+        <div class="items-list">${risks.map(r=>{
+            const rd = tx(r,'Description')||r.textContent.trim();
+            const rm = tx(r,'Mitigation');
+            return `<div class="risk-item"><div class="risk-title">${esc(rd)}</div>${rm?`<div class="risk-note">Opatrenie: ${esc(rm)}</div>`:''}</div>`;
+        }).join('')}</div></div>` : '';
+
+    return `
+    <div class="accordion">
+        <div class="accordion-header" onclick="this.closest('.accordion').classList.toggle('open')">
+            <div class="accordion-left">
+                <div class="accordion-num green">${idx+1}</div>
+                <div class="accordion-info">
+                    <div class="accordion-title">${esc(name)}</div>
+                    ${desc ? `<div class="accordion-sub">${esc(desc.substring(0,90))}${desc.length>90?'…':''}</div>` : ''}
+                </div>
+            </div>
+            <div class="accordion-right">
+                <div class="chip-row">${chips}</div>
+                <div class="acc-arrow">${arrowSvg()}</div>
+            </div>
+        </div>
+        <div class="accordion-body">
+            <div class="accordion-inner">
+                ${desc ? `<p class="desc-text">${esc(desc)}</p>` : ''}
+                ${epicsHtml}${risksHtml}
+            </div>
+        </div>
+    </div>`;
+}
+
+function renderEpicView(epic) {
+    const title    = tx(epic,'Title') || tx(epic,'EpicID') || 'Epic';
+    const desc     = tx(epic,'Description') || '';
+    const priority = tx(epic,'Priority');
+    const assignee = tx(epic,'Assignee');
+    const stories  = dcArr(epic, 'Stories', 'Story');
+
+    const chips = [
+        priority ? `<span class="chip ${priColor(priority)}">${esc(priority)}</span>` : '',
+        assignee ? `<span class="chip blue">${esc(assignee)}</span>` : '',
+    ].filter(Boolean).join('');
+
+    const storiesHtml = stories.map(story => {
+        const st    = tx(story,'Title') || tx(story,'ID') || 'Story';
+        const sd    = tx(story,'Description') || '';
+        const sp    = tx(story,'StoryPoints');
+        const spr   = tx(story,'Priority');
+        const sa    = tx(story,'Assignee');
+        const schips = [
+            sp  ? `<span class="chip green">${esc(sp)} SP</span>` : '',
+            spr ? `<span class="chip ${priColor(spr)}">${esc(spr)}</span>` : '',
+            sa  ? `<span class="chip blue">${esc(sa)}</span>` : '',
+        ].filter(Boolean).join('');
+        const acEl     = story.querySelector('AcceptanceCriteria');
+        const criteria = acEl ? Array.from(acEl.querySelectorAll('Criterion')) : [];
+        const subEl    = story.querySelector('SubTasks');
+        const subtasks = subEl ? Array.from(subEl.querySelectorAll('Task')) : [];
+        const criteriaHtml = criteria.length ? `
+            <div style="margin-top:4px"><div class="sec-label" style="margin-bottom:5px">Kritériá prijatia</div>
+            <div class="criteria-list">${criteria.map(c=>`
+                <div class="criteria-item"><div class="criteria-check"></div><span>${esc(c.textContent.trim())}</span></div>`).join('')}
+            </div></div>` : '';
+        const subtasksHtml = subtasks.length ? `
+            <div class="subtask-list" style="margin-top:4px">${subtasks.map(t=>{
+                const tt = tx(t,'Title') || t.textContent.trim();
+                const td = tx(t,'Description') || '';
+                return `<div class="subtask-item">${esc(tt)}${td?` — <span style="opacity:.65">${esc(td.substring(0,55))}${td.length>55?'…':''}</span>`:''}</div>`;
+            }).join('')}</div>` : '';
+        return `<div class="story-card">
+            <div class="story-title">${esc(st)}</div>
+            ${sd ? `<div class="story-desc">${esc(sd)}</div>` : ''}
+            ${schips ? `<div class="chip-row" style="margin-top:4px">${schips}</div>` : ''}
+            ${criteriaHtml}${subtasksHtml}
+        </div>`;
+    }).join('');
+
+    return `
+    <div class="epic-block">
+        <div class="epic-header" onclick="this.closest('.epic-block').classList.toggle('open');this.querySelector('.epic-arrow').style.transform=this.closest('.epic-block').classList.contains('open')?'rotate(90deg)':''">
+            <div>
+                <div class="epic-title">${esc(title)}</div>
+                ${desc ? `<div class="epic-sub">${esc(desc.substring(0,60))}${desc.length>60?'…':''}</div>` : ''}
+            </div>
+            <div style="display:flex;align-items:center;gap:7px">
+                <div class="chip-row">${chips}</div>
+                <div class="epic-arrow">${arrowSvg(14)}</div>
+            </div>
+        </div>
+        <div class="epic-body">
+            ${storiesHtml || '<div style="font-size:12px;color:var(--muted)">Žiadne user stories</div>'}
+        </div>
+    </div>`;
+}
+
+// ─────────────────────────────────────────
+// UTILS
+// ─────────────────────────────────────────
+function arrowSvg(s=16) {
+    return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>`;
+}
+function priColor(p) {
+    if (!p) return '';
+    const l = p.toLowerCase();
+    if (l.includes('high')||l.includes('critical')||l.includes('vysoká')||l.includes('kritická')) return 'red';
+    if (l.includes('medium')||l.includes('stredná')) return 'yellow';
+    if (l.includes('low')||l.includes('nízka')) return 'green';
+    return '';
+}
+function setLoading(flag, text) {
+    document.getElementById('loadingBar').classList.toggle('active', flag);
+    document.getElementById('loadingState').classList.toggle('active', flag);
+    if (text) document.getElementById('loadingText').textContent = text;
+    document.getElementById('getRecBtn').disabled = flag;
+    document.getElementById('generateBtn').disabled = flag;
+}
+function toast(msg, type = 'info') {
+    const wrap = document.getElementById('toastWrap');
+    const el = document.createElement('div');
+    el.className = `toast ${type}`;
+    el.textContent = msg;
+    wrap.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+}
+function fmtDate(d) {
+    if (!d) return '';
+    try { return new Date(d).toLocaleDateString('sk-SK',{day:'2-digit',month:'2-digit',year:'numeric'}); } catch { return d; }
+}
+function buildJiraLinks(id) {
+    const links = jiraExports[id];
+    if (!links) return '';
+    const parts = [];
+    if (links.prince2) parts.push(`<a class="jira-link" target="_blank" href="${links.prince2.url}">PRINCE2: ${links.prince2.key}</a>`);
+    if (links.scrum)   parts.push(`<a class="jira-link" target="_blank" href="${links.scrum.url}">Scrum: ${links.scrum.key}</a>`);
+    return parts.join('');
+}
+function parseXml(xmlContent) {
+    if (!xmlContent) return { prince2: null, scrum: null };
+    const doc = parseFullDoc(xmlContent);
+    if (!doc) return { prince2: null, scrum: null };
+    return { prince2: doc.querySelector('PRINCE2Project'), scrum: doc.querySelector('ScrumProject') };
+}
+function parseFullDoc(xmlContent) {
+    if (!xmlContent) return null;
+    const clean = extractXml(xmlContent);
+    if (!clean) return null;
+    const doc = new DOMParser().parseFromString(clean, 'text/xml');
+    if (doc.querySelector('parsererror')) return null;
+    return doc;
+}
+function extractXml(raw) {
+    const c = raw.trim(), l = c.toLowerCase();
+    const s = l.indexOf('<projectplans>'), e = l.lastIndexOf('</projectplans>');
+    if (s !== -1 && e !== -1) return c.slice(s, e + '</projectplans>'.length);
+    return c;
+}
+function serializeDoc(doc) {
+    let xml = new XMLSerializer().serializeToString(doc);
+    xml = xml.replace(/^<\?xml[^>]*\?>\s*/, '');
+    // remove namespace attrs XMLSerializer sometimes adds
+    xml = xml.replace(/ xmlns(?::\w+)?="[^"]*"/g, '');
+    return xml;
+}
+function tx(node, tag) {
+    if (!node) return '';
+    // Search only direct children to avoid deep matches
+    for (const c of node.children) if (c.tagName === tag) return c.textContent.trim();
+    return '';
+}
+function esc(v) {
+    return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+</script>
 </body>
 </html>
-
