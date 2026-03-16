@@ -3,7 +3,7 @@ server:
 
 spring:
     datasource:
-        url: jdbc:h2:mem:aiplanner
+        url: jdbc:h2:file:./data/aiplanner
         driverClassName: org.h2.Driver
         username: sa
         password:
@@ -24,6 +24,12 @@ azure:
         endpoint: "${AZURE_OPENAI_ENDPOINT:https://your-resource.openai.azure.com/}"
         api-key: "${AZURE_OPENAI_KEY:REPLACE_ME}"
         deployment-name: "${AZURE_OPENAI_DEPLOYMENT:gpt-4o}"
+
+springdoc:
+    api-docs:
+        path: /api-docs
+    swagger-ui:
+        path: /swagger-ui.html
 
 jira:
     site-url: "${JIRA_SITE_URL:https://YOUR-ORG.atlassian.net}"

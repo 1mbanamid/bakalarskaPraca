@@ -1,59 +1,156 @@
 # AI Project Planner
 
-AI Project Planner je full-stack aplikácia, ktorá generuje PRINCE2 a Scrum projektové plány pomocou Azure OpenAI a exportuje úlohy do existujúceho Jira projektu.
+AI Project Planner je full-stack webová aplikácia (bakalárska práca) ktorá pomocou Azure OpenAI generuje projektové plány podľa metodológií **PRINCE2** a **Scrum**, umožňuje ich interaktívne editovanie a exportuje úlohy do **Jira Cloud**.
 
-## Features
-- 🎯 Single form to provide project name & description
-- 🤖 Two Azure OpenAI prompts (PRINCE2 + Scrum)
-- 🧱 Rich XML parsing + in-place editing before export
-- 📝 Detailed descriptions converted to Jira ADF
-- 🚀 One-click export to Jira Cloud (existing project key `AIP`)
-- 🗂 Built-in project history (H2 DB)
+---
+
+## Funkcie
+
+| Oblasť | Popis |
+|---|---|
+| 🤖 **AI generovanie** | Dual-prompt: PRINCE2 (fázy → úlohy → výstupy → riziká) + Scrum (sprinty → epics → stories → sub-tasky), SK/EN |
+| 📊 **Dashboard** | Interaktívny porovnávací dashboard PRINCE2 vs Scrum — radar chart, donut grafy, časová os, sprint velocity |
+| ✏️ **Inline editovanie** | Editácia každého poľa priamo v UI (name, description, priority, estimate, story points, add/remove položiek) |
+| 🔍 **Validácia** | Frontend + backend validácia pred exportom (štruktúra XML, povinné polia) |
+| 📤 **Jira export** | Export celej hierarchie do Jira Cloud (Task → Sub-task) s ADF opisom, prioritou, due date, story points |
+| 🔌 **Jira diagnostika** | Tlačidlo „Test Jira" — overí autentifikáciu a prístup k projektu pred exportom |
+| 🌐 **i18n** | Prepínanie SK / EN v reálnom čase (frontend aj AI prompty) |
+| 💾 **Perzistencia** | H2 file-based DB, automatická migrácia schémy (JPA `ddl-auto: update`) |
+| 📚 **Swagger UI** | OpenAPI dokumentácia na `/swagger-ui.html` |
+| 🎨 **UI animácie** | GSAP ScrollTrigger accordion, 5-farebné témy, mini-mapa navigátora, ripple efekt, typewriter titulok, stat counters |
+
+---
 
 ## Tech Stack
-- **Backend:** Java 17, Spring Boot 3, WebFlux WebClient, JPA/H2
-- **Frontend:** Vanilla JS, modern CSS layout
-- **AI:** Azure OpenAI (GPT-4o, 8k tokens per call)
-- **Jira:** Cloud REST API v3 (issues only, no project creation)
 
-## Getting Started
+- **Backend:** Java 17, Spring Boot 3.x, Spring WebFlux (WebClient), JPA / H2
+- **Frontend:** Vanilla JS (ES2022), CSS custom properties, GSAP 3.12 + ScrollTrigger
+- **AI:** Azure OpenAI — GPT-4o, max 8 000 tokenov na volanie
+- **Jira:** Cloud REST API v3 — vytvorenie issues/subtasks, ADF description format
+- **Docs:** SpringDoc OpenAPI (springdoc-openapi-starter-webmvc-ui 2.3.0)
+
+---
+
+## Rýchly štart
+
+### 1. Konfigurácia (`.env` súbor)
+
+Vytvor súbor `.env` v koreňovom adresári projektu:
+
 ```bash
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com/
+AZURE_OPENAI_KEY=your-api-key
+AZURE_OPENAI_DEPLOYMENT=gpt-4o
+
+JIRA_SITE_URL=https://your-org.atlassian.net
+JIRA_EMAIL=your-email@example.com
+JIRA_API_TOKEN=your-jira-api-token
+JIRA_PROJECT_KEY=AIP
+JIRA_FIELD_STORY_POINTS=customfield_10016
+```
+
+### 2. Spustenie
+
+```bash
+set -a && source .env && set +a
 mvn spring-boot:run
-# open http://localhost:8080
 ```
 
-Set the following secrets in `src/main/resources/application.yml`:
-```yaml
-azure:
-  openai:
-    api-key: YOUR_AZURE_OPENAI_KEY
-    endpoint: https://YOUR-RESOURCE.openai.azure.com
-    deployment-name: gpt-4o
+> Aplikácia beží na **http://localhost:8080**
 
-jira:
-  site-url: https://YOUR-ORG.atlassian.net
-  email: your-email@example.com
-  api-token: YOUR_JIRA_API_TOKEN
-  project-key: AIP
+### 3. Swagger UI
+
+```
+http://localhost:8080/swagger-ui.html
 ```
 
-## Jira Export Flow
-1. User clicks *Export PRINCE2* or *Export Scrum*
-2. Backend parses stored XML
-3. Creates Issues/Sub-tasks via Jira REST `/rest/api/3/issue`
-4. Same project key (`AIP`), URL returned to UI
+---
 
-## XML Editing
-- Every project snapshot is saved to DB (H2)
-- Entire XML is editable in textarea
-- Stage/Sprint titles & descriptions are inline editable (`contenteditable`)
-- Saving updates XML + persists immediately (PUT `/api/projects/{id}`)
+## Štruktúra projektu
 
-## Logs & Debugging
-- Azure prompts/responses stored under `logs/request_*.log`
-- Export errors surfaced in UI + backend logs
-- Frontend highlights parsing issues and raw XML when needed
+```
+src/main/
+  java/org/example/
+    Controller/
+      ChatController.java       # REST API (generate, CRUD, export, jira/test)
+    Service/
+      OpenAiService.java        # Azure OpenAI volania, XML konverzia
+      JiraService.java          # Jira export + pre-flight auth check
+    Model/
+      Project.java              # JPA entita (id, name, description, xmlContent, language, dates)
+    Repository/
+      ProjectRepository.java
+  resources/
+    static/index.html           # Celý frontend (SPA, ~2 150 riadkov)
+    application.yml             # Konfigurácia (env vars)
+```
 
-## License
-Internal/academic use. Update as needed before public distribution.
+---
 
+## API Endpoints
+
+| Metóda | URL | Popis |
+|---|---|---|
+| `POST` | `/api/generate` | Vygeneruje PRINCE2 + Scrum plán cez Azure OpenAI |
+| `GET` | `/api/projects` | Zoznam všetkých projektov (newest first) |
+| `GET` | `/api/projects/{id}` | Detail projektu |
+| `PUT` | `/api/projects/{id}` | Aktualizácia projektu (inline edit) |
+| `DELETE` | `/api/projects/{id}` | Zmazanie projektu |
+| `POST` | `/api/projects/{id}/export-to-jira` | Export do Jira (`methodology`: PRINCE2 / Scrum) |
+| `GET` | `/api/jira/test` | Test Jira pripojenia (auth + project access) |
+
+---
+
+## Jira Export — hierarchia
+
+```
+PRINCE2:
+  Task (Stage)
+    └── Subtask (Task v Stage)
+
+Scrum:
+  Task (Sprint)
+    └── Task (Epic)
+         └── Task (Story)
+              └── Subtask (Sub-task)
+```
+
+> Poznámka: Jira Free plán nepodporuje issue type „Epic" cez API — všetky úrovne sa exportujú ako `Task` / `Subtask`.
+
+---
+
+## Diagnostika Jira 401
+
+Ak export vráti `HTTP 401 UNAUTHORIZED`:
+
+1. Klikni na tlačidlo **🔌 Test Jira** — zobrazí presný stav autentifikácie
+2. Skontroluj platnosť API tokenu: [https://id.atlassian.com/manage-profile/security/api-tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
+3. Overiť správnosť `JIRA_EMAIL` — musí zodpovedať vlastníkovi tokenu
+4. V Jira projekte: **Project settings → People** — používateľ musí mať rolu s `CREATE_ISSUES`
+
+---
+
+## Vývoj
+
+```bash
+# Zostaviť bez testov
+mvn package -DskipTests
+
+# Spustiť testy
+mvn test
+
+# H2 console (ak je povolená)
+http://localhost:8080/h2-console
+# JDBC URL: jdbc:h2:file:./data/aiplanner
+```
+
+> **Pozor:** Po zmene `src/main/resources/static/index.html` spusti:
+> ```bash
+> cp src/main/resources/static/index.html target/classes/static/index.html
+> ```
+
+---
+
+## Licencia
+
+Interné / akademické použitie (bakalárska práca). Pred verejným šírením aktualizujte podľa potreby.

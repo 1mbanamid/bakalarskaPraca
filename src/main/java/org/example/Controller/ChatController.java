@@ -4,11 +4,17 @@ import org.example.Model.Project;
 import org.example.Repository.ProjectRepository;
 import org.example.Service.OpenAiService;
 import org.example.Service.JiraService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -17,15 +23,15 @@ import java.util.concurrent.ConcurrentHashMap;
 @RestController
 @RequestMapping("/api")
 @CrossOrigin(origins = "*")
+@Tag(name = "AI Project Planner API", description = "REST API for generating AI-powered project plans (PRINCE2 & Scrum) and exporting them to Jira")
 public class ChatController {
 
     private static final Logger log = LoggerFactory.getLogger(ChatController.class);
-    
+
     private final OpenAiService openAiService;
     private final ProjectRepository projectRepository;
     private final JiraService jiraService;
-    
-    // Защита от повторных вызовов экспорта
+
     private final Set<String> exportInProgress = ConcurrentHashMap.newKeySet();
 
     public ChatController(OpenAiService openAiService, ProjectRepository projectRepository, JiraService jiraService) {
@@ -34,131 +40,166 @@ public class ChatController {
         this.jiraService = jiraService;
     }
 
+    @Operation(summary = "Generate project plan", description = "Generates PRINCE2 and Scrum project plans using Azure OpenAI. Returns XML containing both methodologies.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Plan generated successfully"),
+        @ApiResponse(responseCode = "400", description = "Missing required fields (name or description)"),
+        @ApiResponse(responseCode = "500", description = "AI generation error")
+    })
     @PostMapping("/generate")
     public ResponseEntity<Map<String, String>> generate(@RequestBody Map<String, String> request) {
         String name = request.get("name");
         String description = request.get("description");
+
+        if (name == null || name.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Nazov projektu je povinny"));
+        }
+        if (description == null || description.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Popis projektu je povinny"));
+        }
+
         String startDate = request.get("startDate");
         String deadline = request.get("deadline");
-        String budget = request.get("budget");
-        String teamSizeStr = request.get("teamSize");
+        String lang = request.get("lang");
+        if (lang == null || lang.isBlank()) lang = "sk";
 
-        String xmlResponse = openAiService.generateProjectPlan(name, description, startDate, deadline, budget, teamSizeStr);
+        try {
+            String xmlResponse = openAiService.generateProjectPlan(name, description, startDate, deadline, lang);
 
-        // Сохраняем проект в БД
-        Project project = new Project();
-        project.setName(name);
-        project.setDescription(description);
-        project.setXmlContent(xmlResponse);
-        project.setStartDate(startDate);
-        project.setDeadline(deadline);
-        project.setBudget(budget);
-        if (teamSizeStr != null && !teamSizeStr.isEmpty()) {
-            try { project.setTeamSize(Integer.parseInt(teamSizeStr)); } catch (NumberFormatException ignored) {}
+            Project project = new Project();
+            project.setName(name);
+            project.setDescription(description);
+            project.setXmlContent(xmlResponse);
+            project.setStartDate(startDate);
+            project.setDeadline(deadline);
+            project.setLanguage(lang);
+            projectRepository.save(project);
+
+            return ResponseEntity.ok(Map.of("xml", xmlResponse));
+
+        } catch (Exception e) {
+            log.error("Chyba pri generovani planu: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Chyba pri generovani planu: " + e.getMessage()
+            ));
         }
-        projectRepository.save(project);
-
-        return ResponseEntity.ok(Map.of("xml", xmlResponse));
     }
 
+    @Operation(summary = "Get all projects", description = "Returns all saved projects ordered by ID descending (newest first)")
+    @ApiResponse(responseCode = "200", description = "List of projects")
     @GetMapping("/projects")
     public ResponseEntity<List<Project>> getAllProjects() {
         return ResponseEntity.ok(projectRepository.findAllByOrderByIdDesc());
     }
 
+    @Operation(summary = "Get project by ID", description = "Returns a single project by its ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Project found"),
+        @ApiResponse(responseCode = "404", description = "Project not found")
+    })
     @GetMapping("/projects/{id}")
-    public ResponseEntity<Project> getProject(@PathVariable Long id) {
+    public ResponseEntity<Project> getProject(@Parameter(description = "Project ID") @PathVariable Long id) {
         return projectRepository.findById(id)
             .map(ResponseEntity::ok)
             .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Update project", description = "Updates project fields (name, description, xmlContent, dates)")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Project updated"),
+        @ApiResponse(responseCode = "404", description = "Project not found")
+    })
     @PutMapping("/projects/{id}")
-    public ResponseEntity<Project> updateProject(@PathVariable Long id, @RequestBody Project project) {
+    public ResponseEntity<Project> updateProject(@Parameter(description = "Project ID") @PathVariable Long id,
+                                                  @RequestBody Map<String, String> request) {
         return projectRepository.findById(id)
             .map(existing -> {
-                existing.setName(project.getName());
-                existing.setDescription(project.getDescription());
-                existing.setXmlContent(project.getXmlContent());
+                if (request.containsKey("name")) existing.setName(request.get("name"));
+                if (request.containsKey("description")) existing.setDescription(request.get("description"));
+                if (request.containsKey("xmlContent")) existing.setXmlContent(request.get("xmlContent"));
+                if (request.containsKey("startDate")) existing.setStartDate(request.get("startDate"));
+                if (request.containsKey("deadline")) existing.setDeadline(request.get("deadline"));
                 return ResponseEntity.ok(projectRepository.save(existing));
             })
             .orElse(ResponseEntity.notFound().build());
     }
 
+    @Operation(summary = "Delete project", description = "Permanently deletes a project by its ID")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Project deleted"),
+        @ApiResponse(responseCode = "404", description = "Project not found")
+    })
     @DeleteMapping("/projects/{id}")
-    public ResponseEntity<Void> deleteProject(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteProject(@Parameter(description = "Project ID") @PathVariable Long id) {
+        if (!projectRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
         projectRepository.deleteById(id);
         return ResponseEntity.ok().build();
     }
 
+    @Operation(summary = "Test Jira connection", description = "Verifies Jira API credentials and project access without creating any issues. Returns connected/user/projectFound status.")
+    @ApiResponse(responseCode = "200", description = "Connection test result (check 'connected' field)")
+    @GetMapping("/jira/test")
+    public ResponseEntity<Map<String, Object>> testJiraConnection() {
+        log.info("Testing Jira connection...");
+        Map<String, Object> result = jiraService.checkJiraConnection();
+        return ResponseEntity.ok(result);
+    }
+
+    @Operation(summary = "Export to Jira", description = "Exports a project plan to Jira Cloud. Creates issues hierarchy based on methodology (PRINCE2 stages/tasks or Scrum sprints/epics/stories/subtasks)")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Export result (check 'success' field)"),
+        @ApiResponse(responseCode = "404", description = "Project not found")
+    })
     @PostMapping("/projects/{id}/export-to-jira")
     public ResponseEntity<Map<String, Object>> exportToJira(
-            @PathVariable Long id,
+            @Parameter(description = "Project ID") @PathVariable Long id,
             @RequestBody Map<String, String> request) {
-        
-        String methodology = request.get("methodology"); // "PRINCE2" or "Scrum"
-        String projectName = request.get("projectName"); // название проекта для Jira
-        
+
+        String methodology = request.get("methodology");
+        String projectName = request.get("projectName");
+
         String exportKey = id + "-" + methodology;
-        
-        log.info("📤 Požiadavka na export do Jira: projectId={}, methodology={}, projectName={}", 
-            id, methodology, projectName);
-        
-        // Проверяем, не идет ли уже экспорт для этого проекта и методологии
+
+        log.info("Export do Jira: projectId={}, methodology={}", id, methodology);
+
         if (exportInProgress.contains(exportKey)) {
-            log.warn("⚠️ Export už prebieha pre projectId={}, methodology={}", id, methodology);
-            return ResponseEntity.ok(Map.of(
-                "success", false,
-                "message", "Export už prebieha, počkajte prosím..."
-            ));
+            log.warn("Export uz prebieha: {}", exportKey);
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", false);
+            result.put("message", "Export uz prebieha, pockajte...");
+            return ResponseEntity.ok(result);
         }
-        
-        // Помечаем, что экспорт начался
+
         exportInProgress.add(exportKey);
-        
+
         try {
             return projectRepository.findById(id)
                 .map(project -> {
                     try {
-                        log.info("🔍 Nájdený projekt: id={}, name={}", id, project.getName());
-                        
-                        // Используем переданное название или название из проекта
-                        String nameToUse = (projectName != null && !projectName.isEmpty()) 
-                            ? projectName 
-                            : project.getName();
-                        
-                        log.info("📋 Používam názov projektu: {}", nameToUse);
-                        
+                        String nameToUse = (projectName != null && !projectName.isEmpty())
+                            ? projectName : project.getName();
+
                         Map<String, Object> result = jiraService.exportToJira(
-                            project.getXmlContent(), 
-                            methodology, 
-                            nameToUse
-                        );
-                        
-                        log.info("✅ Export dokončený: projectId={}, methodology={}, success={}", 
-                            id, methodology, result.get("success"));
-                        
+                            project.getXmlContent(), methodology, nameToUse);
+
                         return ResponseEntity.ok(result);
                     } finally {
-                        // Убираем из Set после завершения
                         exportInProgress.remove(exportKey);
-                        log.info("🔓 Export ukončený: projectId={}, methodology={}", id, methodology);
                     }
                 })
                 .orElseGet(() -> {
-                    log.error("❌ Projekt nebol nájdený: id={}", id);
                     exportInProgress.remove(exportKey);
                     return ResponseEntity.notFound().build();
                 });
         } catch (Exception e) {
-            log.error("❌ Chyba pri exporte do Jira: projectId={}, methodology={}, error={}", 
-                id, methodology, e.getMessage(), e);
+            log.error("Export chyba: {}", e.getMessage(), e);
             exportInProgress.remove(exportKey);
-            return ResponseEntity.ok(Map.of(
-                "success", false,
-                "message", "Chyba pri exporte: " + e.getMessage()
-            ));
+            Map<String, Object> result = new HashMap<>();
+            result.put("success", false);
+            result.put("message", "Chyba: " + e.getMessage());
+            return ResponseEntity.ok(result);
         }
     }
 }
-

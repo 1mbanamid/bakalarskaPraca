@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>AI Project Planner</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
 <style>
 :root {
     --bg: #0d1117;
@@ -22,6 +24,8 @@
     --danger-dim: rgba(248,81,73,.12);
     --yellow: #d29922;
     --yellow-dim: rgba(210,153,34,.15);
+    --teal: #2dd4bf;
+    --teal-dim: rgba(45,212,191,.15);
     --radius: 8px;
     --radius-lg: 12px;
 }
@@ -33,6 +37,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,san
 .sidebar-header{padding:20px;border-bottom:1px solid var(--border)}
 .sidebar-header h1{font-size:1.15rem;font-weight:600;display:flex;align-items:center;gap:10px}
 .sidebar-header h1 span{font-size:1.3rem}
+.lang-toggle{display:flex;gap:0;margin-top:10px}
+.lang-btn{flex:1;padding:6px;border:1px solid var(--border);background:var(--bg);color:var(--muted);font-size:.78rem;font-weight:600;cursor:pointer;transition:all .12s}
+.lang-btn:first-child{border-radius:var(--radius) 0 0 var(--radius)}
+.lang-btn:last-child{border-radius:0 var(--radius) var(--radius) 0}
+.lang-btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
 .sidebar-list{flex:1;overflow-y:auto;padding:8px}
 .sidebar-item{padding:10px 14px;border-radius:var(--radius);cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;transition:background .12s}
 .sidebar-item:hover{background:rgba(255,255,255,.04)}
@@ -42,6 +51,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,san
 .sidebar-empty{padding:24px;text-align:center;color:var(--muted);font-size:.9rem}
 .btn-new{margin:12px;padding:10px;border-radius:var(--radius);border:1px dashed var(--border);background:transparent;color:var(--accent);font-weight:600;cursor:pointer;font-size:.9rem;transition:background .12s,border-color .12s}
 .btn-new:hover{background:var(--accent-dim);border-color:var(--accent)}
+
+/* ======== CREATE STUB (sticky collapsed strip) ======== */
+.create-stub{position:sticky;top:0;z-index:200;display:none;align-items:center;gap:8px;padding:7px 20px;background:var(--surface);border-bottom:2px solid var(--accent);cursor:pointer;font-size:.85rem;font-weight:600;color:var(--accent);transition:background .15s;user-select:none}
+.create-stub:hover{background:var(--accent-dim)}
+.create-stub .stub-arrow{margin-left:auto;font-size:.75rem;opacity:.7}
+.create-stub.visible{display:flex}
 
 /* ======== MAIN ======== */
 .main{height:100vh;overflow-y:auto;display:flex;flex-direction:column}
@@ -57,6 +72,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,san
 .form-field input,.form-field textarea{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:10px 12px;border-radius:var(--radius);font:inherit;font-size:.9rem;transition:border-color .15s}
 .form-field input:focus,.form-field textarea:focus{outline:none;border-color:var(--accent)}
 .form-field textarea{resize:vertical;min-height:90px}
+.form-field .form-error{color:var(--danger);font-size:.78rem;margin-top:2px;display:none}
+.form-field.has-error input,.form-field.has-error textarea{border-color:var(--danger)}
+.form-field.has-error .form-error{display:block}
 .form-actions{display:flex;gap:10px;justify-content:flex-end}
 
 /* -- Detail view -- */
@@ -76,10 +94,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,san
 .tab-content.active{display:block}
 
 /* -- Accordion -- */
-.accordion{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:8px}
-.acc-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--surface-alt);cursor:pointer;user-select:none;gap:12px;transition:background .12s}
-.acc-header:hover{background:rgba(255,255,255,.03)}
-.acc-title{font-weight:600;font-size:.95rem;flex:1}
+.accordion{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:10px;border-left-width:3px;border-left-style:solid;border-left-color:var(--theme-clr,var(--border));transition:box-shadow .2s,border-color .2s}
+.accordion:hover{box-shadow:0 4px 20px rgba(0,0,0,.25)}
+
+/* 5 color themes — cycling */
+.accordion[data-theme="1"]{--theme-clr:var(--accent);--theme-bg:rgba(88,166,255,.06);--theme-dim:rgba(88,166,255,.18)}
+.accordion[data-theme="2"]{--theme-clr:var(--green);--theme-bg:rgba(63,185,80,.06);--theme-dim:rgba(63,185,80,.18)}
+.accordion[data-theme="3"]{--theme-clr:var(--purple);--theme-bg:rgba(188,140,255,.06);--theme-dim:rgba(188,140,255,.18)}
+.accordion[data-theme="4"]{--theme-clr:var(--yellow);--theme-bg:rgba(210,153,34,.06);--theme-dim:rgba(210,153,34,.18)}
+.accordion[data-theme="5"]{--theme-clr:var(--teal);--theme-bg:rgba(45,212,191,.06);--theme-dim:rgba(45,212,191,.18)}
+.accordion[data-theme]{border-left-color:var(--theme-clr)}
+
+.acc-header{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;background:var(--theme-bg,var(--surface-alt));cursor:pointer;user-select:none;gap:12px;transition:background .15s}
+.acc-header:hover{background:var(--theme-dim,rgba(255,255,255,.03))}
+
+/* Number badge */
+.acc-num{width:26px;height:26px;border-radius:50%;background:var(--theme-clr,var(--muted));color:#0d1117;font-size:.78rem;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 0 3px rgba(0,0,0,.3)}
+
+/* Title block */
+.acc-title-wrap{display:flex;flex-direction:column;flex:1;min-width:0}
+.acc-label{font-size:.68rem;font-weight:700;text-transform:uppercase;letter-spacing:.6px;color:var(--theme-clr,var(--muted));margin-bottom:2px}
+.acc-title{font-weight:600;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .acc-chips{display:flex;gap:6px;flex-wrap:wrap}
 .acc-chip{padding:3px 8px;border-radius:999px;font-size:.72rem;font-weight:500}
 .acc-chip.pri-high{background:var(--danger-dim);color:var(--danger)}
@@ -90,6 +125,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,san
 .acc-chip.date{background:rgba(255,255,255,.06);color:var(--muted)}
 .acc-chip.points{background:var(--green-dim);color:var(--green);font-weight:700}
 .acc-arrow{color:var(--muted);transition:transform .2s}
+/* === Ripple — needs overflow:hidden on header === */
+.acc-header{overflow:hidden}
+.acc-ripple{position:absolute;border-radius:50%;background:var(--theme-clr,var(--accent));opacity:0;pointer-events:none;transform:scale(0)}
+/* === Typewriter cursor === */
+@keyframes twCursor{50%{opacity:0}}
+/* === Vertical timeline line === */
+.acc-timeline-wrap{position:relative}
+.acc-vline{position:absolute;left:28px;top:0;bottom:0;width:2px;background:linear-gradient(to bottom,var(--accent),var(--green),var(--purple),var(--yellow),var(--teal));transform-origin:top center;transform:scaleY(0);border-radius:2px;opacity:.35;z-index:0;pointer-events:none}
+/* === Floating mini-map === */
+.acc-minimap{position:fixed;right:16px;top:50%;transform:translateY(-50%);z-index:999;display:flex;flex-direction:column;gap:10px;padding:10px 8px;background:rgba(13,17,23,.9);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.08);border-radius:20px}
+.minimap-dot{width:9px;height:9px;border-radius:50%;background:var(--border);cursor:pointer;border:none;padding:0;transition:background .2s,transform .2s,box-shadow .2s;position:relative;display:block;outline:none}
+.minimap-dot.active{background:var(--dot-clr,var(--accent));transform:scale(1.5);box-shadow:0 0 8px var(--dot-clr,var(--accent))}
+.minimap-dot .dot-tooltip{position:absolute;right:calc(100% + 10px);top:50%;transform:translateY(-50%);background:var(--surface-alt);border:1px solid var(--border);border-radius:6px;padding:4px 10px;font-size:.73rem;color:var(--text);white-space:nowrap;pointer-events:none;opacity:0;transition:opacity .15s;z-index:1000}
+.minimap-dot:hover .dot-tooltip{opacity:1}
 .acc-body{display:none;padding:14px 16px;border-top:1px solid var(--border);background:var(--bg);font-size:.9rem;line-height:1.6;color:var(--muted)}
 .acc-body.open{display:block}
 .acc-body p{margin-bottom:8px}
@@ -110,6 +159,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,san
 .btn-primary:hover{background:#4090e8}
 .btn-danger{border-color:rgba(248,81,73,.4);color:var(--danger)}
 .btn-danger:hover{background:var(--danger-dim)}
+.btn-success{border-color:rgba(63,185,80,.4);color:var(--green)}
+.btn-success:hover{background:var(--green-dim)}
+.btn-sm{padding:4px 10px;font-size:.78rem}
 
 /* -- Toast -- */
 .toast-container{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px}
@@ -124,10 +176,156 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,san
 .loading-bar.active{animation:loadPulse 2s ease-in-out infinite}
 @keyframes loadPulse{0%{width:10%}50%{width:70%}100%{width:90%}}
 
+/* -- Loading overlay -- */
+.loading-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.55);z-index:9998;display:flex;align-items:center;justify-content:center}
+.loading-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px 40px;text-align:center;max-width:420px;width:90%;box-shadow:0 16px 48px rgba(0,0,0,.5)}
+.loading-box h3{font-size:1rem;margin-bottom:12px;color:var(--accent)}
+.loading-box .spinner{width:36px;height:36px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-box .log-list{text-align:left;max-height:200px;overflow-y:auto;font-size:.82rem;color:var(--muted);margin-top:10px}
+.loading-box .log-item{padding:3px 0;border-bottom:1px solid rgba(255,255,255,.04)}
+.loading-box .log-item.ok{color:var(--green)}
+.loading-box .log-item.err{color:var(--danger)}
+
 /* -- XML editor -- */
 .xml-editor{margin-top:16px}
 .xml-editor textarea{width:100%;min-height:200px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:12px;border-radius:var(--radius);font-family:"JetBrains Mono",Consolas,monospace;font-size:.82rem;line-height:1.5;resize:vertical}
 .xml-editor textarea:focus{outline:none;border-color:var(--accent)}
+
+/* ======== DASHBOARD V2 ======== */
+@keyframes barGrow{from{width:0}to{width:var(--bar-w)}}
+
+/* scroll-reveal animation (replaces CSS dashFadeUp — driven by IntersectionObserver) */
+@keyframes revealUp{from{opacity:0;transform:translateY(28px)}to{opacity:1;transform:translateY(0)}}
+@keyframes revealScale{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+.reveal{opacity:0;transform:translateY(28px);transition:opacity .55s cubic-bezier(.4,0,.2,1),transform .55s cubic-bezier(.4,0,.2,1)}
+.reveal.in-view{opacity:1;transform:translateY(0)}
+.reveal-scale{opacity:0;transform:scale(.94);transition:opacity .5s ease,transform .5s ease}
+.reveal-scale.in-view{opacity:1;transform:scale(1)}
+
+.dv2{display:flex;flex-direction:column;gap:20px}
+.dv2-row{display:grid;gap:16px}
+.dv2-row.c6{grid-template-columns:repeat(6,1fr)}.dv2-row.c4{grid-template-columns:repeat(4,1fr)}.dv2-row.c3{grid-template-columns:repeat(3,1fr)}.dv2-row.c2{grid-template-columns:1fr 1fr}.dv2-row.c1{grid-template-columns:1fr}
+@media(max-width:1100px){.dv2-row.c6{grid-template-columns:repeat(3,1fr)}.dv2-row.c4{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:700px){.dv2-row.c6,.dv2-row.c4,.dv2-row.c3,.dv2-row.c2{grid-template-columns:1fr}}
+
+/* stat cards */
+.sv2{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:18px 14px;text-align:center;position:relative;overflow:hidden;transition:transform .2s,border-color .25s,box-shadow .25s;cursor:default}
+.sv2:hover{transform:translateY(-3px);border-color:var(--accent);box-shadow:0 8px 28px rgba(0,0,0,.35)}
+.sv2::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:3px 3px 0 0;background:var(--stripe,var(--accent));opacity:.8}
+.sv2 .si{font-size:1.3rem;margin-bottom:4px;filter:grayscale(.2)}
+.sv2 .sn{font-size:2rem;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15;color:var(--clr,var(--accent))}
+.sv2 .sl{font-size:.74rem;color:var(--muted);margin-top:5px;text-transform:uppercase;letter-spacing:.5px}
+
+/* panels - base */
+.dp{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:22px;position:relative;overflow:visible;transition:box-shadow .25s,border-color .25s}
+.dp::after{content:'';position:absolute;top:0;left:0;right:0;height:3px;border-radius:var(--radius-lg) var(--radius-lg) 0 0;background:linear-gradient(90deg,var(--g1,var(--accent)),var(--g2,var(--purple)));opacity:.7}
+.dp:hover{box-shadow:0 8px 32px rgba(0,0,0,.28)}
+.dp h3{font-size:.95rem;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.dp h3 .badge{font-size:.72rem;padding:2px 9px;border-radius:999px;font-weight:600}
+.dp h3 .badge.blue{background:var(--accent-dim);color:var(--accent)}
+.dp h3 .badge.green{background:var(--green-dim);color:var(--green)}
+.dp h3 .badge.purple{background:var(--purple-dim);color:var(--purple)}
+
+/* PRINCE2 panel – subtle blue tint */
+.dp-p2{background:linear-gradient(145deg,rgba(88,166,255,.07) 0%,var(--surface) 55%);border-color:rgba(88,166,255,.28)}
+.dp-p2:hover{border-color:rgba(88,166,255,.55);box-shadow:0 8px 32px rgba(88,166,255,.12)}
+.dp-p2::after{background:linear-gradient(90deg,var(--accent),#79b8ff);opacity:.85}
+
+/* Scrum panel – subtle green tint */
+.dp-sc{background:linear-gradient(145deg,rgba(63,185,80,.07) 0%,var(--surface) 55%);border-color:rgba(63,185,80,.28)}
+.dp-sc:hover{border-color:rgba(63,185,80,.55);box-shadow:0 8px 32px rgba(63,185,80,.12)}
+.dp-sc::after{background:linear-gradient(90deg,var(--green),#56d364);opacity:.85}
+
+/* Risk panel – subtle yellow tint */
+.dp-risk{background:linear-gradient(145deg,rgba(210,153,34,.07) 0%,var(--surface) 55%);border-color:rgba(210,153,34,.22)}
+.dp-risk:hover{border-color:rgba(210,153,34,.5);box-shadow:0 8px 32px rgba(210,153,34,.1)}
+.dp-risk::after{background:linear-gradient(90deg,var(--yellow),var(--danger));opacity:.8}
+
+/* donut chart */
+.donut-wrap{display:flex;align-items:center;gap:24px;flex-wrap:wrap;justify-content:center}
+.donut-legend{display:flex;flex-direction:column;gap:8px}
+.donut-legend-item{display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--muted)}
+.donut-legend-item strong{color:var(--text)}
+.donut-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* timeline */
+.tl-track{position:relative;display:flex;gap:0;padding:20px 0 4px}
+.tl-line{position:absolute;top:26px;left:7%;right:7%;height:2px;background:var(--border);z-index:0}
+.tl-node:hover{transform:translateY(-3px)}
+.tl-dot{width:16px;height:16px;border-radius:50%;margin:0 auto 8px;border:3px solid var(--surface);box-shadow:0 0 0 2px var(--dot-c,var(--accent));background:var(--dot-c,var(--accent));transition:box-shadow .2s}
+.tl-node:hover .tl-dot{box-shadow:0 0 0 4px var(--dot-c,var(--accent))}
+.tl-name{font-size:.75rem;font-weight:600;color:var(--text);white-space:normal;word-break:break-word;overflow-wrap:break-word;line-height:1.35;padding:0 2px}
+.tl-node{flex:1;text-align:center;position:relative;z-index:1;cursor:pointer;transition:transform .18s;padding-bottom:10px}
+.tl-date{font-size:.68rem;color:var(--muted);margin-top:2px}
+.tl-est{font-size:.66rem;color:var(--accent);margin-top:1px}
+
+/* bar chart v2 */
+.bv2-wrap{display:flex;flex-direction:column;gap:12px}
+.bv2{display:grid;grid-template-columns:70px 1fr 52px;align-items:center;gap:10px}
+.bv2-lbl{font-size:.8rem;color:var(--muted);text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bv2-track{height:26px;background:var(--bg);border-radius:6px;overflow:hidden;border:1px solid var(--border);position:relative}
+.bv2-fill{height:100%;border-radius:6px;position:relative;width:0;animation:barGrow .8s cubic-bezier(.4,0,.2,1) forwards;animation-delay:var(--del,.3s)}
+.bv2-fill.gradient-green{background:linear-gradient(90deg,var(--green),#56d364)}
+.bv2-fill.gradient-blue{background:linear-gradient(90deg,var(--accent),#79b8ff)}
+.bv2-fill.gradient-purple{background:linear-gradient(90deg,var(--purple),#d2a8ff)}
+.bv2-val{font-size:.8rem;font-weight:600;color:var(--text)}
+
+/* radar chart */
+.radar-wrap{display:flex;justify-content:center;padding:10px 0}
+
+/* comparison table */
+.cmp2{width:100%;border-collapse:separate;border-spacing:0;font-size:.84rem;overflow:hidden;border-radius:var(--radius)}
+.cmp2 th,.cmp2 td{padding:10px 14px;border-bottom:1px solid var(--border)}
+.cmp2 thead th{background:var(--surface-alt);color:var(--text);font-weight:600;text-align:left}
+.cmp2 thead th:not(:first-child){text-align:center}
+.cmp2 td{color:var(--muted)}
+.cmp2 td:not(:first-child){text-align:center;font-weight:600;color:var(--text)}
+.cmp2 tbody tr{transition:background .12s}
+.cmp2 tbody tr:hover{background:rgba(255,255,255,.02)}
+.cmp2 tbody tr:last-child td{border-bottom:none}
+.cmp2 tr.cmp-sep td{background:var(--bg);font-weight:600;letter-spacing:.03em;border-top:1px solid var(--border);padding-top:8px!important}
+
+/* risk blocks */
+.risk-blocks{display:flex;gap:10px}
+.risk-blk{flex:1;border-radius:var(--radius);padding:14px;text-align:center;border:1px solid rgba(255,255,255,.05);transition:transform .15s}
+.risk-blk:hover{transform:scale(1.04)}
+.risk-blk .rv{font-size:1.5rem;font-weight:700;line-height:1.1}
+.risk-blk .rl{font-size:.72rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.3px}
+
+/* mini stat pills */
+.mini-stats{display:flex;gap:10px;margin-top:16px;flex-wrap:wrap}
+.mini-stat{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--bg);border:1px solid var(--border);border-radius:999px;font-size:.78rem}
+.mini-stat .ms-label{color:var(--muted)}.mini-stat .ms-val{font-weight:700}
+
+/* tooltip */
+.dv2-tip{position:fixed;z-index:10001;background:var(--surface-alt);border:1px solid var(--border);border-radius:var(--radius);padding:8px 14px;font-size:.8rem;color:var(--text);pointer-events:none;opacity:0;transition:opacity .15s;max-width:300px;box-shadow:0 8px 24px rgba(0,0,0,.45);line-height:1.4}
+.dv2-tip.show{opacity:1}
+
+/* no data */
+.dv2-empty{text-align:center;padding:60px 20px;color:var(--muted)}
+.dv2-empty .dv2-empty-icon{font-size:3rem;margin-bottom:12px;opacity:.5}
+.dv2-empty p{font-size:.9rem}
+
+/* ======== INLINE EDIT ======== */
+.edit-input,.edit-textarea,.edit-select{background:var(--bg);border:1px solid var(--accent);color:var(--text);padding:4px 8px;border-radius:4px;font:inherit;font-size:.85rem;width:100%}
+.edit-textarea{min-height:50px;resize:vertical}
+.edit-select{padding:4px 6px}
+.edit-row{display:flex;gap:6px;align-items:center;margin-bottom:4px}
+.edit-row label{font-size:.78rem;color:var(--muted);min-width:70px}
+.edit-row input,.edit-row select{flex:1}
+.btn-icon{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.9rem;padding:2px 6px;border-radius:4px;transition:all .12s}
+.btn-icon:hover{background:rgba(255,255,255,.08);color:var(--text)}
+.btn-icon.danger:hover{color:var(--danger);background:var(--danger-dim)}
+.edit-bar{display:flex;gap:8px;margin-bottom:12px;padding:10px;background:var(--surface);border:1px solid var(--accent);border-radius:var(--radius);align-items:center}
+
+/* ======== VALIDATION MODAL ======== */
+.modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);z-index:10000;display:flex;align-items:center;justify-content:center}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;max-width:480px;width:90%;max-height:80vh;overflow-y:auto}
+.modal h3{font-size:1rem;margin-bottom:12px;color:var(--danger)}
+.modal ul{padding-left:18px;margin-bottom:16px}
+.modal li{color:var(--muted);font-size:.88rem;margin-bottom:4px}
+.modal .modal-actions{display:flex;gap:8px;justify-content:flex-end}
 
 @media(max-width:768px){body{grid-template-columns:1fr}.sidebar{display:none}}
 </style>
@@ -141,68 +339,382 @@ body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,san
 <aside class="sidebar">
     <div class="sidebar-header">
         <h1><span>&#9889;</span>AI Project Planner</h1>
+        <div class="lang-toggle">
+            <button class="lang-btn active" data-lang="sk">SK</button>
+            <button class="lang-btn" data-lang="en">EN</button>
+        </div>
     </div>
-    <button class="btn-new" id="btnNewProject">+ Novy projekt</button>
+    <button class="btn-new" id="btnNewProject"></button>
     <div class="sidebar-list" id="sidebarList"></div>
 </aside>
 
 <!-- MAIN -->
 <div class="main">
+    <div id="createStub" class="create-stub">
+        <span>&#10024;</span><span id="createStubLabel"></span><span class="stub-arrow">&#x25B2; kliknite pre návrat</span>
+    </div>
     <div class="create-panel" id="createPanel">
-        <h2>&#10024; Novy projekt</h2>
+        <div style="display:flex;align-items:center;justify-content:space-between">
+            <h2 id="createTitle"></h2>
+            <button type="button" class="btn btn-sm" id="btnCollapseCreate" title="Minimalizovať" onclick="collapseCreatePanel()" style="padding:4px 10px;font-size:.8rem">&#x2015; Skryť</button>
+        </div>
         <form id="projectForm" class="form-grid">
-            <div class="form-field">
-                <label>Nazov projektu</label>
-                <input id="projectName" type="text" placeholder="Napr. Inteligentne planovanie rozpoctu" required>
+            <div class="form-field" id="ff-name">
+                <label id="lbl-name"></label>
+                <input id="projectName" type="text" required>
+                <div class="form-error" id="err-name"></div>
             </div>
-            <div class="form-field">
-                <label>Popis projektu</label>
-                <textarea id="projectDescription" placeholder="Strucne popis ciele, prinosy a ocakavane deliverables projektu." required rows="3"></textarea>
+            <div class="form-field" id="ff-desc">
+                <label id="lbl-desc"></label>
+                <textarea id="projectDescription" required rows="3"></textarea>
+                <div class="form-error" id="err-desc"></div>
             </div>
             <div class="form-row">
-                <div class="form-field">
-                    <label>Datum zaciatku</label>
+                <div class="form-field" id="ff-start">
+                    <label id="lbl-start"></label>
                     <input id="startDate" type="date">
+                    <div class="form-error" id="err-start"></div>
                 </div>
-                <div class="form-field">
-                    <label>Deadline</label>
+                <div class="form-field" id="ff-deadline">
+                    <label id="lbl-deadline"></label>
                     <input id="deadline" type="date">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-field">
-                    <label>Rozpocet (EUR)</label>
-                    <input id="budget" type="number" min="0" step="100" placeholder="napr. 50000">
-                </div>
-                <div class="form-field">
-                    <label>Velkost timu</label>
-                    <input id="teamSize" type="number" min="1" max="50" placeholder="napr. 5">
+                    <div class="form-error" id="err-deadline"></div>
                 </div>
             </div>
             <div class="form-actions">
-                <button type="button" class="btn" onclick="toggleCreate(false)">Zrusit</button>
-                <button type="submit" class="btn btn-primary">Vygenerovat plan</button>
+                <button type="button" class="btn" id="btnCancel"></button>
+                <button type="submit" class="btn btn-primary" id="btnGenerate"></button>
             </div>
         </form>
     </div>
 
     <div class="detail-panel" id="detailPanel">
-        <div class="detail-empty" id="detailEmpty">Vyber projekt zo zoznamu alebo vytvor novy.</div>
+        <div class="detail-empty" id="detailEmpty"></div>
         <div id="detailContent" style="display:none"></div>
     </div>
 </div>
 
 <script>
-// ===== STATE =====
+// ========================= I18N =========================
+const i18n = {
+    sk: {
+        newProject: '+ Novy projekt',
+        createTitle: '&#10024; Novy projekt',
+        labelName: 'Nazov projektu',
+        labelDesc: 'Popis projektu',
+        labelStart: 'Datum zaciatku',
+        labelDeadline: 'Deadline',
+        phName: 'Napr. Inteligentne planovanie rozpoctu',
+        phDesc: 'Strucne popis ciele, prinosy a ocakavane deliverables projektu.',
+        cancel: 'Zrusit',
+        generate: 'Vygenerovat plan',
+        emptyDetail: 'Vyber projekt zo zoznamu alebo vytvor novy.',
+        noProjects: 'Ziadne projekty.',
+        exportPrince2: 'Export PRINCE2',
+        exportScrum: 'Export Scrum',
+        delete: 'Odstranit',
+        edit: 'Upravit',
+        save: 'Ulozit',
+        cancelEdit: 'Zrusit',
+        saveXml: 'Ulozit XML',
+        start: 'Zaciatok',
+        deadline: 'Deadline',
+        princeMissing: 'PRINCE2 plan nebol najdeny v XML.',
+        scrumMissing: 'Scrum plan nebol najdeny v XML.',
+        goal: 'Ciel',
+        outputs: 'Vystupy',
+        risks: 'Rizika',
+        tasks: 'Ulohy (sub-tasky)',
+        criteria: 'Akceptacne kriteria',
+        subtasks: 'Sub-tasky',
+        confirmDelete: 'Naozaj chces zmazat tento projekt?',
+        planGenerated: 'Plan bol uspesne vygenerovany!',
+        aiNoResponse: 'AI nevratil odpoved. Skontroluj logy.',
+        genError: 'Chyba pri generovani planu',
+        deleteOk: 'Projekt bol zmazany.',
+        deleteFail: 'Nepodarilo sa zmazat projekt.',
+        exported: 'Export uspesny! Vytvorenych {0} poloziek v Jira.',
+        exportPartial: 'Exportovanych {0} poloziek, ale {1} zlyhalo.',
+        exportFail: 'Export zlyhal',
+        xmlSaved: 'XML bolo ulozene.',
+        xmlSaveFail: 'Nepodarilo sa ulozit XML',
+        editsSaved: 'Zmeny boli ulozene.',
+        editsSaveFail: 'Nepodarilo sa ulozit zmeny',
+        exportInProgress: 'Export uz prebieha...',
+        // validation
+        errNameReq: 'Nazov je povinny (min 3 znaky).',
+        errDescReq: 'Popis je povinny (min 10 znakov).',
+        errDateOrder: 'Deadline musi byt po datume zaciatku.',
+        // validation export
+        valTitle: 'Chyby pred exportom',
+        valNoPrince: 'XML nema PRINCE2 sekciu.',
+        valNoScrum: 'XML nema Scrum sekciu.',
+        valNoStages: 'PRINCE2 nema ziadne fazy (Stages).',
+        valStageName: 'Faza {0} nema nazov.',
+        valNoSprints: 'Scrum nema ziadne sprinty.',
+        valSprintName: 'Sprint {0} nema nazov.',
+        valNoEpics: 'Sprint {0} nema ziadne epiky.',
+        valEpicName: 'Epic {0} v sprinte {1} nema nazov.',
+        valNoStories: 'Epic {0} v sprinte {1} nema ziadne stories.',
+        valProceed: 'Exportovat napriek chybam',
+        valClose: 'Zavriet',
+        // dashboard
+        dashTitle: 'Dashboard',
+        dSprints: 'Sprinty',
+        dEpics: 'Epiky',
+        dStories: 'Stories',
+        dSubtasks: 'Sub-tasky',
+        dPoints: 'Story Points',
+        dTime: 'Odhad casu',
+        dStages: 'Fazy',
+        dTasks: 'Ulohy',
+        dOutputs: 'Vystupy',
+        dRisks: 'Rizika',
+        dScrumBreakdown: 'Scrum - rozdelenie po sprintoch',
+        dComparison: 'Porovnanie PRINCE2 vs Scrum',
+        dMetric: 'Metrika',
+        dPrince2: 'PRINCE2',
+        dScrum: 'Scrum',
+        dTopLevel: 'Skupiny',
+        dWorkItems: 'Pracovne polozky',
+        dRiskCount: 'Rizika',
+        dTotalEst: 'Celkovy odhad',
+        dPriHigh: 'High priorita',
+        // inline add/remove
+        addStage: '+ Faza',
+        addTask: '+ Uloha',
+        addSprint: '+ Sprint',
+        addEpic: '+ Epic',
+        addStory: '+ Story',
+        addSubtask: '+ Sub-task',
+        addCriterion: '+ Kriterium',
+        addOutput: '+ Vystup',
+        addRisk: '+ Riziko',
+        // dashboard v2
+        dHigh: 'Vysoka',
+        dMedium: 'Stredna',
+        dLow: 'Nizka',
+        dScope: 'Rozsah',
+        dTimeAxis: 'Cas',
+        dRiskAxis: 'Riziko',
+        dComplexity: 'Zlozitost',
+        dResources: 'Zdroje',
+        dNoData: 'Ziadne data k dispozicii',
+        dPrince2Timeline: 'Casova os faz',
+        dScrumTimeline: 'Casova os sprintov',
+        dSprintVelocity: 'Rychlost sprintov',
+        dMethodologyRadar: 'Radar porovnania',
+        dRiskOverview: 'Prehlad rizik',
+        dTotalItems: 'Celkom poloziek',
+        dPriority: 'Priority',
+        dPlanUnits: 'Plánovacie jednotky',
+        dSubItems: 'Pod-položky',
+        dStubLabel: 'Nový projekt',
+        // comparison table
+        cmpStructure: 'Štruktúra plánu',
+        cmpFazySprinty: 'Fázy / Sprinty',
+        cmpUlohyStories: 'Úlohy / Stories',
+        cmpUlohNaJednotku: 'Úloh na fázu / sprint',
+        cmpCasovaNarocnost: 'Časová náročnosť',
+        cmpCelkovyCas: 'Celkový čas',
+        cmpPriemCas: 'Priem. čas / úlohu',
+        cmpRizikaAPriority: 'Riziká & priority',
+        cmpRizikaSpolu: 'Riziká celkom',
+        cmpRizikaPerJednotku: 'Riziká na fázu / sprint',
+        cmpPrioritaVysoka: 'Priorita Vysoká',
+        cmpPrioritaStredna: 'Priorita Stredná',
+        // radar axes
+        dRadarFazy: 'Fázy/Sprinty',
+        dRadarUlohy: 'Úlohy',
+        dRadarCas: 'Čas',
+        dRadarRizika: 'Riziká',
+        dRadarPriorita: 'Priorita',
+    },
+    en: {
+        newProject: '+ New Project',
+        createTitle: '&#10024; New Project',
+        labelName: 'Project Name',
+        labelDesc: 'Project Description',
+        labelStart: 'Start Date',
+        labelDeadline: 'Deadline',
+        phName: 'E.g. Smart Budget Planning',
+        phDesc: 'Briefly describe goals, benefits and expected deliverables.',
+        cancel: 'Cancel',
+        generate: 'Generate Plan',
+        emptyDetail: 'Select a project from the list or create a new one.',
+        noProjects: 'No projects.',
+        exportPrince2: 'Export PRINCE2',
+        exportScrum: 'Export Scrum',
+        delete: 'Delete',
+        edit: 'Edit',
+        save: 'Save',
+        cancelEdit: 'Cancel',
+        saveXml: 'Save XML',
+        start: 'Start',
+        deadline: 'Deadline',
+        princeMissing: 'PRINCE2 plan not found in XML.',
+        scrumMissing: 'Scrum plan not found in XML.',
+        goal: 'Goal',
+        outputs: 'Outputs',
+        risks: 'Risks',
+        tasks: 'Tasks (sub-tasks)',
+        criteria: 'Acceptance Criteria',
+        subtasks: 'Sub-tasks',
+        confirmDelete: 'Are you sure you want to delete this project?',
+        planGenerated: 'Plan generated successfully!',
+        aiNoResponse: 'AI did not respond. Check the logs.',
+        genError: 'Error generating plan',
+        deleteOk: 'Project deleted.',
+        deleteFail: 'Failed to delete project.',
+        exported: 'Export successful! Created {0} items in Jira.',
+        exportPartial: 'Exported {0} items, but {1} failed.',
+        exportFail: 'Export failed',
+        xmlSaved: 'XML saved.',
+        xmlSaveFail: 'Failed to save XML',
+        editsSaved: 'Changes saved.',
+        editsSaveFail: 'Failed to save changes',
+        exportInProgress: 'Export already in progress...',
+        errNameReq: 'Name is required (min 3 characters).',
+        errDescReq: 'Description is required (min 10 characters).',
+        errDateOrder: 'Deadline must be after start date.',
+        valTitle: 'Errors before export',
+        valNoPrince: 'XML has no PRINCE2 section.',
+        valNoScrum: 'XML has no Scrum section.',
+        valNoStages: 'PRINCE2 has no stages.',
+        valStageName: 'Stage {0} has no name.',
+        valNoSprints: 'Scrum has no sprints.',
+        valSprintName: 'Sprint {0} has no name.',
+        valNoEpics: 'Sprint {0} has no epics.',
+        valEpicName: 'Epic {0} in sprint {1} has no title.',
+        valNoStories: 'Epic {0} in sprint {1} has no stories.',
+        valProceed: 'Export despite errors',
+        valClose: 'Close',
+        dashTitle: 'Dashboard',
+        dSprints: 'Sprints',
+        dEpics: 'Epics',
+        dStories: 'Stories',
+        dSubtasks: 'Sub-tasks',
+        dPoints: 'Story Points',
+        dTime: 'Time Estimate',
+        dStages: 'Stages',
+        dTasks: 'Tasks',
+        dOutputs: 'Outputs',
+        dRisks: 'Risks',
+        dScrumBreakdown: 'Scrum - breakdown by sprint',
+        dComparison: 'PRINCE2 vs Scrum Comparison',
+        dMetric: 'Metric',
+        dPrince2: 'PRINCE2',
+        dScrum: 'Scrum',
+        dTopLevel: 'Groups',
+        dWorkItems: 'Work items',
+        dRiskCount: 'Risks',
+        dTotalEst: 'Total estimate',
+        dPriHigh: 'High priority',
+        addStage: '+ Stage',
+        addTask: '+ Task',
+        addSprint: '+ Sprint',
+        addEpic: '+ Epic',
+        addStory: '+ Story',
+        addSubtask: '+ Sub-task',
+        addCriterion: '+ Criterion',
+        addOutput: '+ Output',
+        addRisk: '+ Risk',
+        // dashboard v2
+        dHigh: 'High',
+        dMedium: 'Medium',
+        dLow: 'Low',
+        dScope: 'Scope',
+        dTimeAxis: 'Time',
+        dRiskAxis: 'Risk',
+        dComplexity: 'Complexity',
+        dResources: 'Resources',
+        dNoData: 'No data available',
+        dPrince2Timeline: 'Stage Timeline',
+        dScrumTimeline: 'Sprint Timeline',
+        dSprintVelocity: 'Sprint Velocity',
+        dMethodologyRadar: 'Comparison Radar',
+        dRiskOverview: 'Risk Overview',
+        dTotalItems: 'Total items',
+        dPriority: 'Priority',
+        dPlanUnits: 'Planning Units',
+        dSubItems: 'Sub-items',
+        dStubLabel: 'New Project',
+        // comparison table
+        cmpStructure: 'Plan Structure',
+        cmpFazySprinty: 'Phases / Sprints',
+        cmpUlohyStories: 'Tasks / Stories',
+        cmpUlohNaJednotku: 'Tasks per phase / sprint',
+        cmpCasovaNarocnost: 'Time Complexity',
+        cmpCelkovyCas: 'Total time',
+        cmpPriemCas: 'Avg. time / task',
+        cmpRizikaAPriority: 'Risks & priorities',
+        cmpRizikaSpolu: 'Total risks',
+        cmpRizikaPerJednotku: 'Risks per phase / sprint',
+        cmpPrioritaVysoka: 'Priority High',
+        cmpPrioritaStredna: 'Priority Medium',
+        // radar axes
+        dRadarFazy: 'Phases/Sprints',
+        dRadarUlohy: 'Tasks',
+        dRadarCas: 'Time',
+        dRadarRizika: 'Risks',
+        dRadarPriorita: 'Priority',
+    }
+};
+
+// ========================= STATE =========================
 const jiraExports = JSON.parse(localStorage.getItem('jiraExports') || '{}');
-const state = { projects: [], activeId: null };
+const state = {
+    projects: [], activeId: null,
+    lang: localStorage.getItem('lang') || 'sk',
+    editMode: false, xmlDoc: null,
+    activeTab: 'dashboard'
+};
 
-// ===== INIT =====
+function t(key) { return (i18n[state.lang] || i18n.sk)[key] || key; }
+function tf(key, ...args) { let s = t(key); args.forEach((a,i) => s = s.replace('{'+i+'}', a)); return s; }
+
+// ========================= INIT =========================
 document.getElementById('projectForm').addEventListener('submit', onSubmit);
-document.getElementById('btnNewProject').addEventListener('click', () => toggleCreate(true));
+document.getElementById('btnNewProject').addEventListener('click', () => {
+    const panel = document.getElementById('createPanel');
+    if (panel.classList.contains('active')) {
+        collapseCreatePanel();
+    } else {
+        document.getElementById('createStub').classList.remove('visible');
+        toggleCreate(true);
+    }
+});
+document.querySelectorAll('.lang-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        state.lang = btn.dataset.lang;
+        localStorage.setItem('lang', state.lang);
+        applyLang();
+        if (state.activeId) renderDetail(state.activeId);
+    });
+});
+applyLang();
 loadProjects();
+setupCreatePanelSticky();
 
-// ===== TOAST =====
+function applyLang() {
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === state.lang));
+    document.getElementById('btnNewProject').textContent = t('newProject');
+    document.getElementById('createTitle').innerHTML = t('createTitle');
+    document.getElementById('lbl-name').textContent = t('labelName');
+    document.getElementById('lbl-desc').textContent = t('labelDesc');
+    document.getElementById('lbl-start').textContent = t('labelStart');
+    document.getElementById('lbl-deadline').textContent = t('labelDeadline');
+    document.getElementById('projectName').placeholder = t('phName');
+    document.getElementById('projectDescription').placeholder = t('phDesc');
+    document.getElementById('btnCancel').textContent = t('cancel');
+    document.getElementById('btnGenerate').textContent = t('generate');
+    document.getElementById('detailEmpty').textContent = t('emptyDetail');
+    const stubLabel = document.getElementById('createStubLabel');
+    if (stubLabel) stubLabel.textContent = t('dStubLabel');
+    renderSidebar();
+}
+
+// ========================= TOAST =========================
 function toast(msg, type = 'info') {
     const el = document.createElement('div');
     el.className = 'toast ' + type;
@@ -211,55 +723,162 @@ function toast(msg, type = 'info') {
     setTimeout(() => el.remove(), 4000);
 }
 
-// ===== LOADING =====
+// ========================= LOADING =========================
 function setLoading(flag) {
     document.getElementById('loadingBar').classList.toggle('active', flag);
 }
 
-// ===== CREATE PANEL =====
+// ========================= CREATE =========================
 function toggleCreate(show) {
     document.getElementById('createPanel').classList.toggle('active', show);
-    if (show) document.getElementById('projectName').focus();
+    document.getElementById('createStub').classList.remove('visible');
+    if (show) {
+        setTimeout(() => document.getElementById('projectName').focus(), 50);
+    }
 }
 
-// ===== SUBMIT =====
+function collapseCreatePanel() {
+    document.getElementById('createPanel').classList.remove('active');
+    document.getElementById('createStub').classList.add('visible');
+}
+
+function setupCreatePanelSticky() {
+    document.getElementById('createStub').addEventListener('click', function() {
+        document.getElementById('createPanel').classList.add('active');
+        document.getElementById('createStub').classList.remove('visible');
+        setTimeout(() => document.getElementById('projectName').focus(), 50);
+    });
+}
+
+// ========================= VALIDATION =========================
+function clearFormErrors() {
+    document.querySelectorAll('.form-field').forEach(f => f.classList.remove('has-error'));
+}
+
+function setFieldError(fieldId, errId, msg) {
+    document.getElementById(fieldId).classList.add('has-error');
+    document.getElementById(errId).textContent = msg;
+}
+
+function validateForm() {
+    clearFormErrors();
+    let ok = true;
+    const name = document.getElementById('projectName').value.trim();
+    const desc = document.getElementById('projectDescription').value.trim();
+    const start = document.getElementById('startDate').value;
+    const dl = document.getElementById('deadline').value;
+    if (!name || name.length < 3) { setFieldError('ff-name','err-name',t('errNameReq')); ok = false; }
+    if (!desc || desc.length < 10) { setFieldError('ff-desc','err-desc',t('errDescReq')); ok = false; }
+    if (start && dl && dl < start) { setFieldError('ff-deadline','err-deadline',t('errDateOrder')); ok = false; }
+    return ok;
+}
+
+function validateXmlForExport(xmlContent, methodology) {
+    const parsed = parseXml(xmlContent);
+    const errors = [];
+    if (methodology === 'PRINCE2') {
+        if (!parsed.prince2) { errors.push(t('valNoPrince')); return errors; }
+        const stages = Array.from(parsed.prince2.querySelectorAll('Stages > Stage'));
+        if (!stages.length) errors.push(t('valNoStages'));
+        stages.forEach((s,i) => { if(!txt(s,'Name')) errors.push(tf('valStageName',i+1)); });
+    } else {
+        if (!parsed.scrum) { errors.push(t('valNoScrum')); return errors; }
+        const sprints = Array.from(parsed.scrum.querySelectorAll('Sprints > Sprint'));
+        if (!sprints.length) errors.push(t('valNoSprints'));
+        sprints.forEach((sp,si) => {
+            if(!txt(sp,'Name')) errors.push(tf('valSprintName',si+1));
+            const epics = Array.from(sp.querySelectorAll('Epics > Epic'));
+            if(!epics.length) errors.push(tf('valNoEpics',si+1));
+            epics.forEach((ep,ei) => {
+                if(!txt(ep,'Title')) errors.push(tf('valEpicName',ei+1,si+1));
+                const stories = Array.from(ep.querySelectorAll('Stories > Story'));
+                if(!stories.length) errors.push(tf('valNoStories',ei+1,si+1));
+            });
+        });
+    }
+    return errors;
+}
+
+function showValidationModal(errors, onProceed) {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `<div class="modal">
+        <h3>${esc(t('valTitle'))}</h3>
+        <ul>${errors.map(e=>'<li>'+esc(e)+'</li>').join('')}</ul>
+        <div class="modal-actions">
+            <button class="btn" id="valClose">${esc(t('valClose'))}</button>
+            <button class="btn btn-danger" id="valProceed">${esc(t('valProceed'))}</button>
+        </div>
+    </div>`;
+    document.body.appendChild(overlay);
+    overlay.querySelector('#valClose').onclick = () => overlay.remove();
+    overlay.querySelector('#valProceed').onclick = () => { overlay.remove(); onProceed(); };
+}
+
+// ========================= LOADING OVERLAY =========================
+function showLoadingOverlay(title, subtitle) {
+    removeLoadingOverlay();
+    const el = document.createElement('div');
+    el.className = 'loading-overlay';
+    el.id = 'loadingOverlay';
+    el.innerHTML = `<div class="loading-box"><div class="spinner"></div><h3>${esc(title)}</h3><p style="color:var(--muted);font-size:.88rem">${esc(subtitle||'')}</p><div class="log-list" id="loadingLogs"></div></div>`;
+    document.body.appendChild(el);
+}
+function addLoadingLog(msg, cls) {
+    const list = document.getElementById('loadingLogs');
+    if (!list) return;
+    const item = document.createElement('div');
+    item.className = 'log-item '+(cls||'');
+    item.textContent = msg;
+    list.appendChild(item);
+    list.scrollTop = list.scrollHeight;
+}
+function removeLoadingOverlay() {
+    const el = document.getElementById('loadingOverlay');
+    if (el) el.remove();
+}
+
+// ========================= SUBMIT =========================
 async function onSubmit(e) {
     e.preventDefault();
+    if (!validateForm()) return;
     const name = document.getElementById('projectName').value.trim();
     const description = document.getElementById('projectDescription').value.trim();
-    if (!name || !description) return;
     const startDate = document.getElementById('startDate').value || '';
     const deadline = document.getElementById('deadline').value || '';
-    const budget = document.getElementById('budget').value || '';
-    const teamSize = document.getElementById('teamSize').value || '';
     setLoading(true);
+    showLoadingOverlay(
+        state.lang==='sk' ? 'Generovanie plánu...' : 'Generating plan...',
+        state.lang==='sk' ? 'AI generuje PRINCE2 a Scrum plány. Môže to trvať 30-60 sekúnd.' : 'AI is generating PRINCE2 and Scrum plans. This may take 30-60 seconds.'
+    );
     try {
         const r = await fetch('/api/generate', {
             method: 'POST',
             headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({name,description,startDate,deadline,budget,teamSize})
+            body: JSON.stringify({name, description, startDate, deadline, lang: state.lang})
         });
-        if (!r.ok) throw new Error('HTTP ' + r.status);
         const data = await r.json();
+        if (!r.ok) throw new Error(data.error || 'HTTP ' + r.status);
         toggleCreate(false);
         e.target.reset();
+        clearFormErrors();
         await loadProjects();
         if (data.xml) {
-            toast('Plan bol uspesne vygenerovany!', 'success');
-            // select last created
+            toast(t('planGenerated'), 'success');
             if (state.projects.length) selectProject(state.projects[0].id);
         } else {
-            toast('AI nevratil odpoved. Skontroluj logy.', 'error');
+            toast(t('aiNoResponse'), 'error');
         }
     } catch (err) {
         console.error(err);
-        toast('Chyba pri generovani planu: ' + err.message, 'error');
+        toast(t('genError') + ': ' + err.message, 'error');
     } finally {
         setLoading(false);
+        removeLoadingOverlay();
     }
 }
 
-// ===== PROJECTS =====
+// ========================= PROJECTS =========================
 async function loadProjects() {
     try {
         const r = await fetch('/api/projects');
@@ -267,23 +886,16 @@ async function loadProjects() {
         state.projects = await r.json();
         renderSidebar();
         if (state.activeId) renderDetail(state.activeId);
-    } catch (err) {
-        console.error(err);
-    }
+    } catch (err) { console.error(err); }
 }
 
 function renderSidebar() {
     const el = document.getElementById('sidebarList');
-    if (!state.projects.length) {
-        el.innerHTML = '<div class="sidebar-empty">Ziadne projekty.</div>';
-        return;
-    }
+    if (!state.projects.length) { el.innerHTML = '<div class="sidebar-empty">'+t('noProjects')+'</div>'; return; }
     el.innerHTML = state.projects.map(p => `
-        <div class="sidebar-item ${p.id === state.activeId ? 'active' : ''}" data-id="${p.id}">
-            <span class="name">${esc(p.name)}</span>
-            <span class="date">#${p.id}</span>
-        </div>
-    `).join('');
+        <div class="sidebar-item ${p.id===state.activeId?'active':''}" data-id="${p.id}">
+            <span class="name">${esc(p.name)}</span><span class="date">#${p.id}</span>
+        </div>`).join('');
     el.querySelectorAll('.sidebar-item').forEach(item => {
         item.addEventListener('click', () => selectProject(+item.dataset.id));
     });
@@ -291,144 +903,652 @@ function renderSidebar() {
 
 function selectProject(id) {
     state.activeId = id;
+    state.editMode = false;
+    state.xmlDoc = null;
+    state.activeTab = 'dashboard';
+    clearMinimap();
     renderSidebar();
     renderDetail(id);
 }
 
-// ===== DETAIL =====
+// ========================= DETAIL =========================
 function renderDetail(id) {
     const project = state.projects.find(p => p.id === id);
     const empty = document.getElementById('detailEmpty');
     const content = document.getElementById('detailContent');
-    if (!project) { empty.style.display = 'flex'; content.style.display = 'none'; return; }
+    if (!project) { empty.style.display='flex'; content.style.display='none'; return; }
     empty.style.display = 'none';
     content.style.display = 'block';
 
     const parsed = parseXml(project.xmlContent);
     const meta = [];
-    if (project.startDate) meta.push('Zaciatok: ' + project.startDate);
-    if (project.deadline) meta.push('Deadline: ' + project.deadline);
-    if (project.budget) meta.push('Rozpocet: ' + project.budget + ' EUR');
-    if (project.teamSize) meta.push('Tim: ' + project.teamSize);
+    if (project.startDate) meta.push(t('start') + ': ' + project.startDate);
+    if (project.deadline) meta.push(t('deadline') + ': ' + project.deadline);
 
+    const at = state.activeTab || 'dashboard';
     content.innerHTML = `
         <div class="detail-header">
             <div>
                 <h2>${esc(project.name)}</h2>
-                <p style="color:var(--muted);margin-top:4px;font-size:.9rem">${esc(project.description || '')}</p>
-                ${meta.length ? '<div class="detail-meta" style="margin-top:8px">' + meta.map(m => '<span class="meta-chip">' + esc(m) + '</span>').join('') + '</div>' : ''}
+                <p style="color:var(--muted);margin-top:4px;font-size:.9rem">${esc(project.description||'')}</p>
+                ${meta.length?'<div class="detail-meta" style="margin-top:8px">'+meta.map(m=>'<span class="meta-chip">'+esc(m)+'</span>').join('')+'</div>':''}
             </div>
             <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn" onclick="exportProject(${id},'PRINCE2')">Export PRINCE2</button>
-                <button class="btn" onclick="exportProject(${id},'Scrum')">Export Scrum</button>
-                <button class="btn btn-danger" onclick="deleteProject(${id})">Odstranit</button>
+                <button class="btn" id="btnEdit" onclick="toggleEditMode(${id})">${state.editMode ? t('cancelEdit') : t('edit')}</button>
+                <button class="btn" onclick="doExport(${id},'PRINCE2')">${t('exportPrince2')}</button>
+                <button class="btn" onclick="doExport(${id},'Scrum')">${t('exportScrum')}</button>
+                <button class="btn" onclick="testJiraConnection()" title="Overiť Jira prihlásenie" style="border-color:rgba(210,153,34,.4);color:var(--yellow)">🔌 Test Jira</button>
+                <button class="btn btn-danger" onclick="deleteProject(${id})">${t('delete')}</button>
             </div>
         </div>
-        ${buildJiraLinks(id)}
+        ${buildJiraLink(id)}
         <div class="tabs">
-            <div class="tab active" data-tab="prince2">PRINCE2</div>
-            <div class="tab" data-tab="scrum">Scrum</div>
-            <div class="tab" data-tab="xml">XML</div>
+            <div class="tab ${at==='dashboard'?'active':''}" data-tab="dashboard">${t('dashTitle')}</div>
+            <div class="tab ${at==='prince2'?'active':''}" data-tab="prince2">PRINCE2</div>
+            <div class="tab ${at==='scrum'?'active':''}" data-tab="scrum">Scrum</div>
         </div>
-        <div class="tab-content active" data-panel="prince2">${renderPrince2(parsed.prince2)}</div>
-        <div class="tab-content" data-panel="scrum">${renderScrum(parsed.scrum)}</div>
-        <div class="tab-content" data-panel="xml">
-            <div class="xml-editor">
-                <textarea id="xmlEditor">${esc(project.xmlContent||'')}</textarea>
-                <div style="margin-top:8px;display:flex;gap:8px">
-                    <button class="btn" onclick="saveXml(${id})">Ulozit XML</button>
-                </div>
-            </div>
-        </div>
-    `;
+        <div class="tab-content ${at==='dashboard'?'active':''}" data-panel="dashboard">${renderDashboard(parsed)}</div>
+        <div class="tab-content ${at==='prince2'?'active':''}" data-panel="prince2">${state.editMode ? renderPrince2Edit(project) : renderPrince2(parsed.prince2)}</div>
+        <div class="tab-content ${at==='scrum'?'active':''}" data-panel="scrum">${state.editMode ? renderScrumEdit(project) : renderScrum(parsed.scrum)}</div>`;
     content.querySelectorAll('.tab').forEach(tab => {
         tab.addEventListener('click', () => {
             content.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
             content.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
             tab.classList.add('active');
             content.querySelector(`[data-panel="${tab.dataset.tab}"]`).classList.add('active');
+            state.activeTab = tab.dataset.tab;
+            if(tab.dataset.tab==='dashboard'){ clearMinimap(); requestAnimationFrame(()=>initDashboardAnimations()); }
+            if(tab.dataset.tab==='prince2'||tab.dataset.tab==='scrum') requestAnimationFrame(()=>setupAccordionScrollTrigger());
         });
     });
-    // Accordion toggling
     content.querySelectorAll('.acc-header').forEach(h => {
-        h.addEventListener('click', () => {
+        h.addEventListener('click', (e) => {
+            spawnRipple(e, h);
             const body = h.nextElementSibling;
-            body.classList.toggle('open');
-            h.querySelector('.acc-arrow').textContent = body.classList.contains('open') ? '\u25B2' : '\u25BC';
+            const wasOpen = body.classList.contains('open');
+            if (wasOpen) {
+                // Close with animation
+                gsap && gsap.to(body, {height: 0, opacity: 0, duration: 0.3, ease:'power2.in',
+                    onComplete:()=>{ body.classList.remove('open'); gsap.set(body,{clearProps:'all'}); }});
+            } else {
+                body.classList.add('open');
+                gsap && gsap.from(body, {height:0, opacity:0, duration:0.38, ease:'power2.out', clearProps:'height,opacity'});
+                // Typewriter on title (first open only)
+                typewriterEl(h.querySelector('.acc-title'));
+                // Animate chip counters (first open only)
+                animateChips(body);
+            }
+            h.querySelector('.acc-arrow').textContent = wasOpen ? '\u25BC' : '\u25B2';
         });
+    });
+    if(at==='dashboard') requestAnimationFrame(()=>initDashboardAnimations());
+    if(at==='prince2'||at==='scrum') requestAnimationFrame(()=>setupAccordionScrollTrigger());
+}
+
+// ========================= DASHBOARD =========================
+function parseEstimate(s) {
+    if (!s) return 0;
+    let h = 0;
+    const wm = s.match(/(\d+)\s*w/); if (wm) h += +wm[1] * 40;
+    const dm = s.match(/(\d+)\s*d/); if (dm) h += +dm[1] * 8;
+    const hm = s.match(/(\d+)\s*h/); if (hm) h += +hm[1];
+    return h;
+}
+function fmtHours(h) {
+    if (!h) return '0h';
+    const w = Math.floor(h/40), rem = h%40, d = Math.floor(rem/8), hr = rem%8;
+    let s = '';
+    if (w) s += w+'w ';
+    if (d) s += d+'d ';
+    if (hr) s += hr+'h';
+    return s.trim() || '0h';
+}
+
+function renderDashboard(parsed) {
+    // ---- Scrum stats ----
+    let sSprints=0,sEpics=0,sStories=0,sSubtasks=0,sPoints=0,sHours=0,sHighPri=0,sMedPri=0,sLowPri=0,sRisks=0;
+    const sprintData=[];
+    if(parsed.scrum){
+        const sprints=Array.from(parsed.scrum.querySelectorAll('Sprints > Sprint'));
+        sSprints=sprints.length;
+        sprints.forEach(sp=>{
+            let spSt=0,spPt=0,spH=0;
+            sRisks+=Array.from(sp.querySelectorAll('Risks > Risk')).length;
+            const epics=Array.from(sp.querySelectorAll('Epics > Epic'));
+            sEpics+=epics.length;
+            epics.forEach(ep=>{
+                const stories=Array.from(ep.querySelectorAll('Stories > Story'));
+                sStories+=stories.length; spSt+=stories.length;
+                stories.forEach(st=>{
+                    const pts=parseInt(txt(st,'StoryPoints'))||0; sPoints+=pts; spPt+=pts;
+                    const est=parseEstimate(txt(st,'OriginalEstimate')); sHours+=est; spH+=est;
+                    const pri=txt(st,'Priority');
+                    if(pri==='High')sHighPri++; else if(pri==='Medium')sMedPri++; else sLowPri++;
+                    sSubtasks+=st.querySelectorAll('SubTasks > Task').length;
+                });
+            });
+            sprintData.push({name:txt(sp,'Name')||'Sprint '+(sprintData.length+1),stories:spSt,points:spPt,hours:spH});
+        });
+    }
+    // ---- PRINCE2 stats ----
+    // Priorities and time counted ONLY at Task level (= equivalent to Scrum Story level)
+    // Stage estimates kept only for timeline display to avoid double-counting
+    let pStages=0,pTasks=0,pOutputs=0,pRisks=0,pHours=0,pHighPri=0,pMedPri=0,pLowPri=0;
+    const stageData=[];
+    if(parsed.prince2){
+        const stages=Array.from(parsed.prince2.querySelectorAll('Stages > Stage'));
+        pStages=stages.length;
+        stages.forEach(s=>{
+            pOutputs+=Array.from(s.querySelectorAll('Outputs > Output')).length;
+            pRisks+=Array.from(s.querySelectorAll('Risks > Risk')).length;
+            // Stage estimate used only for stageData display, NOT summed into pHours
+            const stagePri=txt(s,'Priority');
+            const stageEst=txt(s,'OriginalEstimate');
+            const tasks=Array.from(s.querySelectorAll('Tasks > Task'));
+            pTasks+=tasks.length;
+            // Count time and priority only at task level (same granularity as Scrum stories)
+            if(tasks.length>0){
+                tasks.forEach(tk=>{
+                    pHours+=parseEstimate(txt(tk,'OriginalEstimate'));
+                    const tp=txt(tk,'Priority');
+                    if(tp==='High')pHighPri++; else if(tp==='Medium')pMedPri++; else pLowPri++;
+                });
+            } else {
+                // No tasks: fall back to stage-level estimate and priority
+                pHours+=parseEstimate(stageEst);
+                if(stagePri==='High')pHighPri++; else if(stagePri==='Medium')pMedPri++; else pLowPri++;
+            }
+            stageData.push({name:txt(s,'Name')||'Stage '+(stageData.length+1),dueDate:txt(s,'DueDate'),estimate:stageEst,priority:stagePri});
+        });
+    }
+
+    const hasP=!!parsed.prince2, hasS=!!parsed.scrum, hasBoth=hasP&&hasS;
+    if(!hasP&&!hasS) return '<div class="dv2"><div class="dv2-empty"><div class="dv2-empty-icon">&#x1F4CA;</div><p>'+t('dNoData')+'</p></div></div>';
+
+    const maxPts=Math.max(...sprintData.map(d=>d.points),1);
+    const maxSt=Math.max(...sprintData.map(d=>d.stories),1);
+
+    // store data for post-render animations
+    window._dashData={
+        p2Pri:[pHighPri,pMedPri,pLowPri], scPri:[sHighPri,sMedPri,sLowPri],
+        radar: hasBoth ? buildRadarData(pStages,pTasks,pHours,pRisks,pHighPri,pMedPri,pLowPri,sSprints,sStories,sHours,sRisks,sHighPri,sMedPri,sLowPri) : null
+    };
+
+    let h='<div class="dv2" id="dashV2">';
+
+    // ROW 2: methodology panels
+    h+='<div class="dv2-row '+(hasBoth?'c2':'c1')+'">';
+    if(hasP){
+        h+='<div class="dp dp-p2">';
+        h+='<h3>&#x1F3DB; PRINCE2 <span class="badge blue">'+pStages+' '+t('dStages').toLowerCase()+'</span></h3>';
+        // donut
+        h+='<div class="donut-wrap"><div id="donutP2" style="width:150px;height:150px"></div>';
+        h+='<div class="donut-legend">';
+        h+=dlItem('var(--danger)',t('dHigh'),pHighPri);
+        h+=dlItem('var(--yellow)',t('dMedium'),pMedPri);
+        h+=dlItem('var(--green)',t('dLow'),pLowPri);
+        h+='</div></div>';
+        // timeline
+        h+='<h3 style="margin-top:20px;font-size:.86rem">&#x1F552; '+t('dPrince2Timeline')+'</h3>';
+        h+='<div style="position:relative"><div class="tl-line"></div><div class="tl-track">';
+        const dotColors=['var(--accent)','var(--green)','var(--purple)','var(--yellow)'];
+        stageData.forEach((s,i)=>{
+            h+='<div class="tl-node" data-tip="'+esc(s.name+(s.estimate?' | '+s.estimate:''))+'" style="--dot-c:'+dotColors[i%dotColors.length]+'">';
+            h+='<div class="tl-dot"></div>';
+            h+='<div class="tl-name">'+esc(s.name)+'</div>';
+            if(s.dueDate)h+='<div class="tl-date">'+esc(s.dueDate)+'</div>';
+            if(s.estimate)h+='<div class="tl-est">'+esc(s.estimate)+'</div>';
+            h+='</div>';
+        });
+        h+='</div></div>';
+        // mini stats
+        h+='<div class="mini-stats">';
+        h+=ms(t('dOutputs'),pOutputs,'var(--accent)');
+        h+=ms(t('dTasks'),pTasks,'var(--accent)');
+        h+=ms(t('dTime'),fmtHours(pHours),'var(--purple)');
+        h+='</div>';
+        h+='</div>';
+    }
+    if(hasS){
+        h+='<div class="dp dp-sc">';
+        h+='<h3>&#x1F3C3; Scrum <span class="badge green">'+sSprints+' '+t('dSprints').toLowerCase()+'</span></h3>';
+        // donut
+        h+='<div class="donut-wrap"><div id="donutSc" style="width:150px;height:150px"></div>';
+        h+='<div class="donut-legend">';
+        h+=dlItem('var(--danger)',t('dHigh'),sHighPri);
+        h+=dlItem('var(--yellow)',t('dMedium'),sMedPri);
+        h+=dlItem('var(--green)',t('dLow'),sLowPri);
+        h+='</div></div>';
+        // sprint velocity bars
+        h+='<h3 style="margin-top:20px;font-size:.86rem">&#x1F680; '+t('dSprintVelocity')+'</h3>';
+        h+='<div class="bv2-wrap">';
+        sprintData.forEach((d,i)=>{
+            const pctS=(d.stories/maxSt*100).toFixed(0);
+            const pctP=(d.points/maxPts*100).toFixed(0);
+            const del=(.2+i*.15).toFixed(2);
+            h+='<div class="bv2"><span class="bv2-lbl">Sprint '+(i+1)+'</span>';
+            h+='<div class="bv2-track"><div class="bv2-fill gradient-green" style="--bar-w:'+pctS+'%;--del:'+del+'s"></div></div>';
+            h+='<span class="bv2-val">'+d.stories+' st</span></div>';
+            h+='<div class="bv2"><span class="bv2-lbl"></span>';
+            h+='<div class="bv2-track"><div class="bv2-fill gradient-blue" style="--bar-w:'+pctP+'%;--del:'+(.05+parseFloat(del)).toFixed(2)+'s"></div></div>';
+            h+='<span class="bv2-val">'+d.points+' SP</span></div>';
+        });
+        h+='</div>';
+        // mini stats
+        h+='<div class="mini-stats">';
+        h+=ms(t('dEpics'),sEpics,'var(--green)');
+        h+=ms(t('dSubtasks'),sSubtasks,'var(--accent)');
+        h+=ms(t('dTime'),fmtHours(sHours),'var(--purple)');
+        h+='</div>';
+        h+='</div>';
+    }
+    h+='</div>';
+
+    // ROW 3: radar + comparison (only if both)
+    if(hasBoth){
+        h+='<div class="dv2-row c2">';
+        h+='<div class="dp reveal-scale"><h3>&#x1F4CA; '+t('dMethodologyRadar')+'</h3><div class="radar-wrap" id="radarChart"></div></div>';
+        h+='<div class="dp reveal-scale" style="--reveal-delay:.1s"><h3>&#x1F4CB; '+t('dComparison')+'</h3>';
+        // helper: ratio per planning unit, rounded to 1 decimal
+        const rpu=(val,units)=>units>0?(val/units).toFixed(1):'–';
+        h+='<table class="cmp2"><thead><tr><th>'+t('dMetric')+'</th><th style="color:var(--accent)">PRINCE2</th><th style="color:var(--green)">Scrum</th></tr></thead><tbody>';
+        h+='<tr class="cmp-sep"><td colspan="3">'+t('cmpStructure')+'</td></tr>';
+        h+='<tr><td>'+t('cmpFazySprinty')+'</td><td><strong>'+pStages+'</strong> fáz</td><td><strong>'+sSprints+'</strong> sprintov</td></tr>';
+        h+='<tr><td>'+t('cmpUlohyStories')+'</td><td><strong>'+pTasks+'</strong> úloh</td><td><strong>'+sStories+'</strong> stories</td></tr>';
+        h+='<tr><td>'+t('cmpUlohNaJednotku')+'</td><td>'+rpu(pTasks,pStages)+'</td><td>'+rpu(sStories,sSprints)+'</td></tr>';
+        h+='<tr class="cmp-sep"><td colspan="3">'+t('cmpCasovaNarocnost')+'</td></tr>';
+        h+='<tr><td>'+t('cmpCelkovyCas')+'</td><td><strong>'+fmtHours(pHours)+'</strong></td><td><strong>'+fmtHours(sHours)+'</strong></td></tr>';
+        h+='<tr><td>'+t('cmpPriemCas')+'</td><td>'+fmtHours(pTasks>0?Math.round(pHours/pTasks):0)+'</td><td>'+fmtHours(sStories>0?Math.round(sHours/sStories):0)+'</td></tr>';
+        h+='<tr class="cmp-sep"><td colspan="3">'+t('cmpRizikaAPriority')+'</td></tr>';
+        h+='<tr><td>'+t('cmpRizikaSpolu')+'</td><td><strong>'+pRisks+'</strong></td><td><strong>'+sRisks+'</strong></td></tr>';
+        h+='<tr><td>'+t('cmpRizikaPerJednotku')+'</td><td>'+rpu(pRisks,pStages)+'</td><td>'+rpu(sRisks,sSprints)+'</td></tr>';
+        h+='<tr><td>'+t('cmpPrioritaVysoka')+'</td><td style="color:var(--danger)"><strong>'+pHighPri+'</strong> ('+Math.round(pHighPri/(pHighPri+pMedPri+pLowPri||1)*100)+'%)</td><td style="color:var(--danger)"><strong>'+sHighPri+'</strong> ('+Math.round(sHighPri/(sHighPri+sMedPri+sLowPri||1)*100)+'%)</td></tr>';
+        h+='<tr><td>'+t('cmpPrioritaStredna')+'</td><td style="color:var(--yellow)"><strong>'+pMedPri+'</strong> ('+Math.round(pMedPri/(pHighPri+pMedPri+pLowPri||1)*100)+'%)</td><td style="color:var(--yellow)"><strong>'+sMedPri+'</strong> ('+Math.round(sMedPri/(sHighPri+sMedPri+sLowPri||1)*100)+'%)</td></tr>';
+        h+='</tbody></table></div>';
+        h+='</div>';
+    }
+
+    // ROW 4: risk overview
+    h+='<div class="dv2-row '+(hasBoth?'c2':'c1')+'">';
+    if(hasP){
+        h+='<div class="dp dp-risk dp-p2"><h3>&#x26A0;&#xFE0F; PRINCE2 '+t('dRiskOverview')+'</h3>';
+        h+=riskBlocks(pHighPri,pMedPri,pLowPri,pRisks);
+        h+='</div>';
+    }
+    if(hasS){
+        h+='<div class="dp dp-risk dp-sc"><h3>&#x26A0;&#xFE0F; Scrum '+t('dRiskOverview')+'</h3>';
+        h+=riskBlocks(sHighPri,sMedPri,sLowPri,sRisks);
+        h+='</div>';
+    }
+    h+='</div>';
+
+    h+='</div>';
+    return h;
+}
+
+// ---- Dashboard V2 helpers ----
+function sc2(icon,val,label,style){
+    return '<div class="sv2" style="'+style+'"><div class="si">'+icon+'</div><div class="sn" data-target="'+val+'">0</div><div class="sl">'+esc(label)+'</div></div>';
+}
+function dlItem(color,label,count){
+    return '<div class="donut-legend-item"><div class="donut-dot" style="background:'+color+'"></div><span>'+esc(label)+': <strong>'+count+'</strong></span></div>';
+}
+function ms(label,val,color){
+    return '<div class="mini-stat"><span class="ms-label">'+esc(label)+'</span><span class="ms-val" style="color:'+color+'">'+(typeof val==='number'?val:esc(val))+'</span></div>';
+}
+function riskBlocks(hi,med,lo,totalRisks){
+    let h='<div class="risk-blocks">';
+    h+='<div class="risk-blk" style="background:var(--danger-dim)"><div class="rv" style="color:var(--danger)">'+hi+'</div><div class="rl">'+t('dHigh')+'</div></div>';
+    h+='<div class="risk-blk" style="background:var(--yellow-dim)"><div class="rv" style="color:var(--yellow)">'+med+'</div><div class="rl">'+t('dMedium')+'</div></div>';
+    h+='<div class="risk-blk" style="background:var(--green-dim)"><div class="rv" style="color:var(--green)">'+lo+'</div><div class="rl">'+t('dLow')+'</div></div>';
+    h+='</div>';
+    h+='<div style="margin-top:10px;font-size:.78rem;color:var(--muted)">'+t('dTotalItems')+': '+totalRisks+' '+t('dRisks').toLowerCase()+'</div>';
+    return h;
+}
+
+function buildRadarData(pStages,pTasks,pHours,pRisks,pHighPri,pMedPri,pLowPri,sSprints,sStories,sHours,sRisks,sHighPri,sMedPri,sLowPri){
+    // Global normalization: each axis uses its own max so actual project values shape the polygon
+    function n(a,b){const m=Math.max(a,b,1);return[+(a/m).toFixed(3),+(b/m).toFixed(3)];}
+    const[fP,fS]=n(pStages,sSprints);           // fázy vs sprinty
+    const[uP,uS]=n(pTasks,sStories);             // úlohy vs stories
+    const[tP,tS]=n(pHours,sHours);               // čas
+    const[rP,rS]=n(pRisks,sRisks);               // riziká
+    const pAllPri=pHighPri+pMedPri+pLowPri, sAllPri=sHighPri+sMedPri+sLowPri;
+    const[priP,priS]=n(pHighPri,sHighPri);        // vysoká priorita
+    return{
+        labels:[t('dRadarFazy'),t('dRadarUlohy'),t('dRadarCas'),t('dRadarRizika'),t('dRadarPriorita')],
+        p2raw:[pStages,pTasks,pHours,pRisks,pHighPri],
+        scraw:[sSprints,sStories,sHours,sRisks,sHighPri],
+        datasets:[
+            {values:[fP,uP,tP,rP,priP],color:'var(--accent)',label:'PRINCE2'},
+            {values:[fS,uS,tS,rS,priS],color:'var(--green)',label:'Scrum'}
+        ]
+    };
+}
+
+// ---- SVG donut chart ----
+function drawDonutChart(id,values,colors){
+    const el=document.getElementById(id);if(!el)return;
+    const total=values.reduce((a,b)=>a+b,0);
+    if(!total){el.innerHTML='<svg viewBox="0 0 150 150" width="150" height="150"><circle cx="75" cy="75" r="54" fill="none" stroke="var(--border)" stroke-width="16"/><text x="75" y="75" text-anchor="middle" dominant-baseline="central" fill="var(--muted)" font-size=".8rem">0</text></svg>';return;}
+    const sz=150,cx=75,cy=75,r=54,sw=16;
+    const circ=2*Math.PI*r;
+    let svg='<svg viewBox="0 0 '+sz+' '+sz+'" width="'+sz+'" height="'+sz+'">';
+    svg+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="var(--border)" stroke-width="'+sw+'" opacity=".3"/>';
+    let cum=-90;
+    values.forEach((v,i)=>{
+        if(!v)return;
+        const pct=v/total,dashLen=circ*pct,dashGap=circ-dashLen;
+        svg+='<circle cx="'+cx+'" cy="'+cy+'" r="'+r+'" fill="none" stroke="'+colors[i]+'" stroke-width="'+sw+'" ';
+        svg+='stroke-dasharray="'+dashLen.toFixed(2)+' '+dashGap.toFixed(2)+'" ';
+        svg+='transform="rotate('+cum+' '+cx+' '+cy+')" ';
+        svg+='style="transition:stroke-dasharray .8s ease;cursor:pointer" ';
+        svg+='data-tip="'+v+' ('+Math.round(pct*100)+'%)" />';
+        cum+=pct*360;
+    });
+    svg+='<text x="'+cx+'" y="'+cy+'" text-anchor="middle" dominant-baseline="central" fill="var(--text)" font-size="1.6rem" font-weight="700">'+total+'</text>';
+    svg+='</svg>';
+    el.innerHTML=svg;
+}
+
+// ---- SVG radar chart ----
+function drawRadarChart(id,data){
+    const el=document.getElementById(id);if(!el||!data)return;
+    const labels=data.labels,sets=data.datasets,n=labels.length;
+    const sz=300,cx=sz/2,cy=sz/2,maxR=105;
+    let svg='<svg viewBox="0 0 '+sz+' '+sz+'" width="'+sz+'" height="'+sz+'">';
+    // grid
+    for(let lv=1;lv<=3;lv++){
+        const lr=maxR*lv/3;let pts='';
+        for(let i=0;i<n;i++){const a=Math.PI*2*i/n-Math.PI/2;pts+=(cx+lr*Math.cos(a))+','+(cy+lr*Math.sin(a))+' ';}
+        svg+='<polygon points="'+pts.trim()+'" fill="none" stroke="var(--border)" stroke-width="1" opacity=".5"/>';
+    }
+    // axes
+    for(let i=0;i<n;i++){
+        const a=Math.PI*2*i/n-Math.PI/2;
+        svg+='<line x1="'+cx+'" y1="'+cy+'" x2="'+(cx+maxR*Math.cos(a))+'" y2="'+(cy+maxR*Math.sin(a))+'" stroke="var(--border)" stroke-width="1" opacity=".4"/>';
+        const lx=cx+(maxR+22)*Math.cos(a),ly=cy+(maxR+22)*Math.sin(a);
+        svg+='<text x="'+lx.toFixed(1)+'" y="'+ly.toFixed(1)+'" text-anchor="middle" dominant-baseline="central" fill="var(--muted)" font-size=".72rem">'+labels[i]+'</text>';
+    }
+    // data polygons
+    const rawKeys=['p2raw','scraw'];
+    sets.forEach((ds,di)=>{
+        const rawArr=data[rawKeys[di]]||[];
+        let pts='';
+        for(let i=0;i<n;i++){const a=Math.PI*2*i/n-Math.PI/2,vr=maxR*(ds.values[i]||0);pts+=(cx+vr*Math.cos(a)).toFixed(1)+','+(cy+vr*Math.sin(a)).toFixed(1)+' ';}
+        svg+='<polygon points="'+pts.trim()+'" fill="'+ds.color+'" fill-opacity=".12" stroke="'+ds.color+'" stroke-width="2.5" stroke-linejoin="round"/>';
+        for(let i=0;i<n;i++){
+            const a=Math.PI*2*i/n-Math.PI/2,vr=maxR*(ds.values[i]||0);
+            const rawVal=rawArr[i]!=null?rawArr[i]:'';
+            const tip=labels[i]+': '+(rawVal!==''?rawVal:'–')+' ('+Math.round((ds.values[i]||0)*100)+'%)';
+            svg+='<circle cx="'+(cx+vr*Math.cos(a)).toFixed(1)+'" cy="'+(cy+vr*Math.sin(a)).toFixed(1)+'" r="4.5" fill="'+ds.color+'" stroke="var(--surface)" stroke-width="2" data-tip="'+tip+'"/>';
+        }
+    });
+    svg+='</svg>';
+    // legend
+    let legend='<div style="display:flex;justify-content:center;gap:24px;margin-top:10px">';
+    sets.forEach(ds=>{
+        legend+='<div style="display:flex;align-items:center;gap:6px;font-size:.8rem"><div style="width:14px;height:3px;background:'+ds.color+';border-radius:2px"></div><span style="color:var(--muted)">'+ds.label+'</span></div>';
+    });
+    legend+='</div>';
+    el.innerHTML=svg+legend;
+}
+
+// ---- Animated counters ----
+function animateCounters(){
+    document.querySelectorAll('.sn[data-target]').forEach(el=>{
+        const raw=el.dataset.target,target=parseFloat(raw);
+        if(isNaN(target)){el.textContent=raw;return;}
+        if(target===0){el.textContent='0';return;}
+        const dur=700,start=performance.now();
+        (function step(now){
+            const p=Math.min((now-start)/dur,1);
+            const eased=1-Math.pow(1-p,3);
+            el.textContent=Math.round(target*eased);
+            if(p<1)requestAnimationFrame(step);
+        })(start);
     });
 }
 
-// ===== PRINCE2 RENDER =====
+// ---- Tooltip system ----
+function initDashTooltips(){
+    let tip=document.getElementById('dv2Tip');
+    if(!tip){tip=document.createElement('div');tip.id='dv2Tip';tip.className='dv2-tip';document.body.appendChild(tip);}
+    document.querySelectorAll('[data-tip]').forEach(el=>{
+        el.addEventListener('mouseenter',()=>{tip.textContent=el.dataset.tip;tip.classList.add('show');});
+        el.addEventListener('mousemove',e=>{tip.style.left=Math.min(e.clientX+14,window.innerWidth-320)+'px';tip.style.top=(e.clientY-36)+'px';});
+        el.addEventListener('mouseleave',()=>{tip.classList.remove('show');});
+    });
+}
+
+// ---- Master init ----
+// ========================= ACCORDION SCROLL TRIGGER (GSAP) =========================
+function setupAccordionScrollTrigger() {
+    if (!window.gsap || !window.ScrollTrigger) return;
+    gsap.registerPlugin(ScrollTrigger);
+
+    const scroller = document.querySelector('.detail-panel');
+    if (!scroller) return;
+
+    // Kill any previous ScrollTrigger instances to avoid duplicates
+    ScrollTrigger.getAll().forEach(st => st.kill());
+
+    const accordions = document.querySelectorAll('#detailContent .accordion');
+    if (!accordions.length) return;
+
+    // Start all accordions hidden (slide up entrance)
+    gsap.set(accordions, { opacity: 0, y: 22, clearProps: 'none' });
+
+    accordions.forEach((acc, i) => {
+        ScrollTrigger.create({
+            trigger: acc,
+            scroller: scroller,
+            start: 'top 88%',
+            once: true,
+            onEnter: () => {
+                // 1. Slide the accordion card in
+                gsap.to(acc, {
+                    opacity: 1,
+                    y: 0,
+                    duration: 0.42,
+                    delay: i * 0.04,
+                    ease: 'power3.out',
+                    onComplete: () => {
+                        // 2. Auto-open the body after card appears
+                        const body = acc.querySelector('.acc-body');
+                        const arrow = acc.querySelector('.acc-arrow');
+                        if (!body || body.classList.contains('open')) return;
+                        body.classList.add('open');
+                        gsap.from(body, {
+                            height: 0,
+                            opacity: 0,
+                            duration: 0.48,
+                            ease: 'power2.out',
+                            clearProps: 'height,opacity'
+                        });
+                        if (arrow) arrow.textContent = '\u25B2';
+                        // Typewriter + chip counters on auto-open
+                        typewriterEl(acc.querySelector('.acc-title'));
+                        animateChips(body);
+                    }
+                });
+            }
+        });
+    });
+
+    // Vertical line scrub draw animation
+    setupVline(scroller);
+
+    // Floating mini-map
+    setupMinimap(accordions);
+}
+
+function setupScrollReveal(){
+    const root=document.getElementById('detailContent');
+    if(!root)return;
+    // Rows fade up
+    const rows=root.querySelectorAll('#dashV2 .dv2-row');
+    // Individual .dp panels inside rows
+    const panels=root.querySelectorAll('#dashV2 .dp');
+    // Table rows inside comparison table
+    const cmpRows=root.querySelectorAll('#dashV2 .cmp2 tbody tr:not(.cmp-sep)');
+    // Timeline nodes
+    const tlNodes=root.querySelectorAll('#dashV2 .tl-node');
+    // Risk blocks
+    const riskBlks=root.querySelectorAll('#dashV2 .risk-blk');
+
+    const scroller=document.querySelector('.detail-panel');
+    const obs=new IntersectionObserver((entries)=>{
+        entries.forEach(e=>{
+            if(e.isIntersecting){
+                e.target.classList.add('in-view');
+                obs.unobserve(e.target);
+            }
+        });
+    },{root:scroller,threshold:0.08});
+
+    // Rows: staggered fade-up
+    rows.forEach((el,i)=>{
+        el.classList.add('reveal');
+        el.style.transitionDelay=(i*0.07)+'s';
+        obs.observe(el);
+    });
+    // Panels: scale-in with slight delay offset inside each row
+    panels.forEach((el,i)=>{
+        if(!el.classList.contains('reveal-scale'))el.classList.add('reveal-scale');
+        el.style.transitionDelay=(0.04+i*0.06)+'s';
+        obs.observe(el);
+    });
+    // Comparison table rows: fast stagger
+    cmpRows.forEach((el,i)=>{
+        el.style.opacity='0';
+        el.style.transform='translateX(-10px)';
+        el.style.transition='opacity .3s ease,transform .3s ease';
+        el.style.transitionDelay=(0.05+i*0.04)+'s';
+        obs.observe(el);
+        // override onIntersect for table rows
+    });
+    // Timeline nodes
+    tlNodes.forEach((el,i)=>{
+        el.style.opacity='0';
+        el.style.transform='translateY(12px) scale(.9)';
+        el.style.transition='opacity .35s ease,transform .35s ease';
+        el.style.transitionDelay=(i*0.08)+'s';
+        obs.observe(el);
+    });
+    // Risk blocks
+    riskBlks.forEach((el,i)=>{
+        el.style.opacity='0';
+        el.style.transform='scale(.85)';
+        el.style.transition='opacity .4s ease,transform .4s cubic-bezier(.34,1.56,.64,1)';
+        el.style.transitionDelay=(i*0.07)+'s';
+        obs.observe(el);
+    });
+
+    // Extended observer for inline-styled elements (tables rows, tl-nodes, risk-blks)
+    const obs2=new IntersectionObserver((entries)=>{
+        entries.forEach(e=>{
+            if(e.isIntersecting){
+                e.target.style.opacity='1';
+                e.target.style.transform='none';
+                obs2.unobserve(e.target);
+            }
+        });
+    },{root:scroller,threshold:0.05});
+    [...cmpRows,...tlNodes,...riskBlks].forEach(el=>obs2.observe(el));
+}
+
+function initDashboardAnimations(){
+    const d=document.getElementById('dashV2');if(!d)return;
+    animateCounters();
+    setupScrollReveal();
+    const data=window._dashData;if(!data)return;
+    const p2=data.p2Pri,sc=data.scPri;
+    const cols=['var(--danger)','var(--yellow)','var(--green)'];
+    if(p2&&p2.some(v=>v>0))drawDonutChart('donutP2',p2,cols);
+    if(sc&&sc.some(v=>v>0))drawDonutChart('donutSc',sc,cols);
+    if(data.radar)drawRadarChart('radarChart',data.radar);
+    initDashTooltips();
+}
+
+// ========================= PRINCE2 RENDER =========================
 function renderPrince2(node) {
-    if (!node) return '<p style="color:var(--muted);padding:16px">PRINCE2 plan nebol najdeny v XML.</p>';
+    if (!node) return '<p style="color:var(--muted);padding:16px">'+t('princeMissing')+'</p>';
     const stages = Array.from(node.querySelectorAll('Stages > Stage'));
-    return stages.map((s, i) => {
-        const name = txt(s,'Name') || 'Stage ' + (i+1);
+    const inner = stages.map((s, i) => {
+        const theme = (i % 5) + 1;
+        const name = txt(s,'Name') || 'Stage '+(i+1);
         const desc = txt(s,'Description');
         const chips = buildChips(s, ['Priority','Component','OriginalEstimate','DueDate']);
         const outputs = listItems(s, 'Outputs', 'Output');
         const risks = listItems(s, 'Risks', 'Risk');
         const tasks = Array.from(s.querySelectorAll('Tasks > Task'));
-        return `<div class="accordion">
+        return `<div class="accordion" data-theme="${theme}">
             <div class="acc-header">
-                <span class="acc-title">${esc(name)}</span>
+                <span class="acc-num">${i+1}</span>
+                <div class="acc-title-wrap">
+                    <span class="acc-label">Fáza ${i+1}</span>
+                    <span class="acc-title">${esc(name)}</span>
+                </div>
                 <div class="acc-chips">${chips}</div>
                 <span class="acc-arrow">\u25BC</span>
             </div>
             <div class="acc-body">
-                ${desc ? '<p>'+esc(desc)+'</p>' : ''}
-                ${outputs.length ? '<p class="sub-title">Vystupy</p><ul>'+outputs.map(o=>'<li>'+esc(o)+'</li>').join('')+'</ul>' : ''}
-                ${risks.length ? '<p class="sub-title">Rizika</p><ul>'+risks.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>' : ''}
-                ${tasks.length ? '<p class="sub-title">Ulohy (sub-tasky)</p>'+tasks.map(t => renderTaskCard(t)).join('') : ''}
-            </div>
-        </div>`;
+                ${desc?'<p>'+esc(desc)+'</p>':''}
+                ${outputs.length?'<p class="sub-title">'+t('outputs')+'</p><ul>'+outputs.map(o=>'<li>'+esc(o)+'</li>').join('')+'</ul>':''}
+                ${risks.length?'<p class="sub-title">'+t('risks')+'</p><ul>'+risks.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>':''}
+                ${tasks.length?'<p class="sub-title">'+t('tasks')+'</p>'+tasks.map(t=>renderTaskCard(t)).join(''):''}
+            </div></div>`;
     }).join('');
+    return '<div class="acc-timeline-wrap"><div class="acc-vline"></div>'+inner+'</div>';
 }
 
-// ===== SCRUM RENDER =====
+// ========================= SCRUM RENDER =========================
 function renderScrum(node) {
-    if (!node) return '<p style="color:var(--muted);padding:16px">Scrum plan nebol najdeny v XML.</p>';
+    if (!node) return '<p style="color:var(--muted);padding:16px">'+t('scrumMissing')+'</p>';
     const sprints = Array.from(node.querySelectorAll('Sprints > Sprint'));
-    return sprints.map((sp, i) => {
-        const name = txt(sp,'Name') || 'Sprint ' + (i+1);
+    const inner = sprints.map((sp, i) => {
+        const theme = (i % 5) + 1;
+        const name = txt(sp,'Name') || 'Sprint '+(i+1);
         const goal = txt(sp,'Goal');
         const desc = txt(sp,'Description');
         const chips = buildChips(sp, ['Priority','DueDate']);
         const risks = listItems(sp, 'Risks', 'Risk');
         const epics = Array.from(sp.querySelectorAll('Epics > Epic'));
-        return `<div class="accordion">
+        return `<div class="accordion" data-theme="${theme}">
             <div class="acc-header">
-                <span class="acc-title">${esc(name)}</span>
+                <span class="acc-num">${i+1}</span>
+                <div class="acc-title-wrap">
+                    <span class="acc-label">Sprint ${i+1}</span>
+                    <span class="acc-title">${esc(name)}</span>
+                </div>
                 <div class="acc-chips">${chips}</div>
                 <span class="acc-arrow">\u25BC</span>
             </div>
             <div class="acc-body">
-                ${goal ? '<p><strong>Ciel:</strong> '+esc(goal)+'</p>' : ''}
-                ${desc ? '<p>'+esc(desc)+'</p>' : ''}
-                ${risks.length ? '<p class="sub-title">Rizika</p><ul>'+risks.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>' : ''}
-                ${epics.map(ep => renderEpic(ep)).join('')}
-            </div>
-        </div>`;
+                ${goal?'<p><strong>'+t('goal')+':</strong> '+esc(goal)+'</p>':''}
+                ${desc?'<p>'+esc(desc)+'</p>':''}
+                ${risks.length?'<p class="sub-title">'+t('risks')+'</p><ul>'+risks.map(r=>'<li>'+esc(r)+'</li>').join('')+'</ul>':''}
+                ${epics.map(ep=>renderEpic(ep)).join('')}
+            </div></div>`;
     }).join('');
+    return '<div class="acc-timeline-wrap"><div class="acc-vline"></div>'+inner+'</div>';
 }
 
 function renderEpic(epic) {
-    const title = txt(epic,'Title') || 'Epic';
+    const title = txt(epic,'Title')||'Epic';
     const desc = txt(epic,'Description');
     const chips = buildChips(epic, ['Priority','Component']);
     const labels = txt(epic,'Labels');
     const stories = Array.from(epic.querySelectorAll('Stories > Story'));
-    return `<div class="nested-card">
-        <strong>${esc(title)}</strong>
-        <div class="nested-chips">${chips}${labels ? labelsChips(labels) : ''}</div>
-        ${desc ? '<div class="desc">'+esc(desc)+'</div>' : ''}
-        ${stories.map(st => renderStory(st)).join('')}
-    </div>`;
+    return `<div class="nested-card"><strong>${esc(title)}</strong>
+        <div class="nested-chips">${chips}${labels?labelsChips(labels):''}</div>
+        ${desc?'<div class="desc">'+esc(desc)+'</div>':''}
+        ${stories.map(st=>renderStory(st)).join('')}</div>`;
 }
 
 function renderStory(story) {
-    const title = txt(story,'Title') || 'Story';
+    const title = txt(story,'Title')||'Story';
     const desc = txt(story,'Description');
     const chips = buildChips(story, ['StoryPoints','Priority','OriginalEstimate','DueDate']);
     const labels = txt(story,'Labels');
@@ -436,100 +1556,556 @@ function renderStory(story) {
     const subtasks = Array.from(story.querySelectorAll('SubTasks > Task'));
     return `<div class="nested-card" style="margin-left:8px;border-style:dashed">
         <strong>${esc(title)}</strong>
-        <div class="nested-chips">${chips}${labels ? labelsChips(labels) : ''}</div>
-        ${desc ? '<div class="desc">'+esc(desc)+'</div>' : ''}
-        ${criteria.length ? '<p class="sub-title" style="font-size:.82rem;margin-top:8px">Akceptacne kriteria</p><ul style="font-size:.82rem">'+criteria.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>' : ''}
-        ${subtasks.length ? '<p class="sub-title" style="font-size:.82rem;margin-top:8px">Sub-tasky</p>'+subtasks.map(t=>renderTaskCard(t)).join('') : ''}
+        <div class="nested-chips">${chips}${labels?labelsChips(labels):''}</div>
+        ${desc?'<div class="desc">'+esc(desc)+'</div>':''}
+        ${criteria.length?'<p class="sub-title" style="font-size:.82rem;margin-top:8px">'+t('criteria')+'</p><ul style="font-size:.82rem">'+criteria.map(c=>'<li>'+esc(c)+'</li>').join('')+'</ul>':''}
+        ${subtasks.length?'<p class="sub-title" style="font-size:.82rem;margin-top:8px">'+t('subtasks')+'</p>'+subtasks.map(tk=>renderTaskCard(tk)).join(''):''}
     </div>`;
 }
 
 function renderTaskCard(task) {
-    const title = txt(task,'Title') || txt(task,'Description') || 'Task';
+    const title = txt(task,'Title')||txt(task,'Description')||'Task';
     const desc = txt(task,'Description');
     const chips = buildChips(task, ['Priority','OriginalEstimate','DueDate']);
     return `<div class="nested-card" style="background:var(--surface-alt);border-color:var(--border)">
-        <strong style="font-size:.84rem">${esc(title)}</strong>
-        <div class="nested-chips">${chips}</div>
-        ${desc && desc !== title ? '<div class="desc" style="font-size:.82rem">'+esc(desc)+'</div>' : ''}
+        <strong style="font-size:.84rem">${esc(title)}</strong><div class="nested-chips">${chips}</div>
+        ${desc&&desc!==title?'<div class="desc" style="font-size:.82rem">'+esc(desc)+'</div>':''}</div>`;
+}
+
+// ========================= INLINE EDIT MODE =========================
+function toggleEditMode(projectId) {
+    const project = state.projects.find(p => p.id === projectId);
+    if (!project) return;
+    state.editMode = !state.editMode;
+    if (state.editMode) {
+        const xmlStr = project.xmlContent || '';
+        state.xmlDoc = new DOMParser().parseFromString(xmlStr, 'text/xml');
+    } else {
+        state.xmlDoc = null;
+    }
+    renderDetail(projectId);
+}
+
+function getXmlEl(path) {
+    if (!state.xmlDoc) return null;
+    return state.xmlDoc.querySelector(path);
+}
+
+function setXmlText(el, tag, value) {
+    if (!el) return;
+    let child = el.querySelector(tag);
+    if (!child) { child = state.xmlDoc.createElement(tag); el.appendChild(child); }
+    child.textContent = value;
+}
+
+function editField(tag, type, val, cls) {
+    if (type === 'textarea') return `<textarea class="edit-textarea ${cls||''}" data-tag="${tag}">${esc(val)}</textarea>`;
+    if (type === 'priority') return `<select class="edit-select ${cls||''}" data-tag="${tag}">
+        <option ${val==='High'?'selected':''}>High</option><option ${val==='Medium'?'selected':''}>Medium</option><option ${val==='Low'?'selected':''}>Low</option></select>`;
+    return `<input class="edit-input ${cls||''}" data-tag="${tag}" value="${esc(val)}" type="${type==='number'?'number':'text'}">`;
+}
+
+function renderPrince2Edit(project) {
+    const p2 = state.xmlDoc.querySelector('PRINCE2Project');
+    if (!p2) return '<p style="color:var(--muted);padding:16px">'+t('princeMissing')+'</p>';
+    const stages = Array.from(p2.querySelectorAll('Stages > Stage'));
+    let html = `<div class="edit-bar"><span style="color:var(--accent);font-weight:600">EDIT MODE</span>
+        <button class="btn btn-primary btn-sm" onclick="saveEdits(${project.id})">${t('save')}</button>
+        <button class="btn btn-sm" onclick="toggleEditMode(${project.id})">${t('cancelEdit')}</button></div>`;
+    html += stages.map((s,si) => {
+        const tasks = Array.from(s.querySelectorAll('Tasks > Task'));
+        const outputs = listItems(s,'Outputs','Output');
+        const risks = listItems(s,'Risks','Risk');
+        return `<div class="accordion" data-si="${si}">
+            <div class="acc-header"><span class="acc-title">${esc(txt(s,'Name'))}</span><span class="acc-arrow">\u25BC</span></div>
+            <div class="acc-body open">
+                <div class="edit-row"><label>Name</label>${editField('Name','text',txt(s,'Name'))}</div>
+                <div class="edit-row"><label>Desc</label>${editField('Description','textarea',txt(s,'Description'))}</div>
+                <div class="edit-row"><label>Priority</label>${editField('Priority','priority',txt(s,'Priority'))}</div>
+                <div class="edit-row"><label>Component</label>${editField('Component','text',txt(s,'Component'))}</div>
+                <div class="edit-row"><label>Estimate</label>${editField('OriginalEstimate','text',txt(s,'OriginalEstimate'))}</div>
+                <div class="edit-row"><label>Due</label>${editField('DueDate','text',txt(s,'DueDate'))}</div>
+                <p class="sub-title">${t('outputs')}</p>
+                <div class="edit-list" data-si="${si}" data-list="outputs">
+                    ${outputs.map((o,oi) => `<div class="edit-row"><input class="edit-input" data-oi="${oi}" value="${esc(o)}"><button class="btn-icon danger" onclick="removeListItem(this,'output')">&times;</button></div>`).join('')}
+                    <button class="btn btn-sm" onclick="addListItem(this,'output','${si}')">${t('addOutput')}</button>
+                </div>
+                <p class="sub-title">${t('risks')}</p>
+                <div class="edit-list" data-si="${si}" data-list="risks">
+                    ${risks.map((r,ri) => `<div class="edit-row"><input class="edit-input" data-ri="${ri}" value="${esc(r)}"><button class="btn-icon danger" onclick="removeListItem(this,'risk')">&times;</button></div>`).join('')}
+                    <button class="btn btn-sm" onclick="addListItem(this,'risk','${si}')">${t('addRisk')}</button>
+                </div>
+                <p class="sub-title">${t('tasks')}</p>
+                ${tasks.map((tk,ti) => `<div class="nested-card" style="background:var(--surface-alt)" data-ti="${ti}">
+                    <div class="edit-row"><label>Title</label>${editField('Title','text',txt(tk,'Title'))}</div>
+                    <div class="edit-row"><label>Desc</label>${editField('Description','textarea',txt(tk,'Description'))}</div>
+                    <div class="edit-row"><label>Priority</label>${editField('Priority','priority',txt(tk,'Priority'))}</div>
+                    <div class="edit-row"><label>Estimate</label>${editField('OriginalEstimate','text',txt(tk,'OriginalEstimate'))}</div>
+                    <button class="btn-icon danger" onclick="removeNode(this,'task')" style="margin-top:4px">&times; Remove</button>
+                </div>`).join('')}
+                <button class="btn btn-sm" onclick="addTask(this,${si})">${t('addTask')}</button>
+            </div></div>`;
+    }).join('');
+    html += `<button class="btn btn-sm" onclick="addStage()" style="margin-top:8px">${t('addStage')}</button>`;
+    return html;
+}
+
+function renderScrumEdit(project) {
+    const sc = state.xmlDoc.querySelector('ScrumProject');
+    if (!sc) return '<p style="color:var(--muted);padding:16px">'+t('scrumMissing')+'</p>';
+    const sprints = Array.from(sc.querySelectorAll('Sprints > Sprint'));
+    let html = `<div class="edit-bar"><span style="color:var(--green);font-weight:600">EDIT MODE</span>
+        <button class="btn btn-primary btn-sm" onclick="saveEdits(${project.id})">${t('save')}</button>
+        <button class="btn btn-sm" onclick="toggleEditMode(${project.id})">${t('cancelEdit')}</button></div>`;
+    html += sprints.map((sp,si) => {
+        const epics = Array.from(sp.querySelectorAll('Epics > Epic'));
+        return `<div class="accordion" data-spri="${si}">
+            <div class="acc-header"><span class="acc-title">${esc(txt(sp,'Name'))}</span><span class="acc-arrow">\u25BC</span></div>
+            <div class="acc-body open">
+                <div class="edit-row"><label>Name</label>${editField('Name','text',txt(sp,'Name'))}</div>
+                <div class="edit-row"><label>Goal</label>${editField('Goal','textarea',txt(sp,'Goal'))}</div>
+                <div class="edit-row"><label>Priority</label>${editField('Priority','priority',txt(sp,'Priority'))}</div>
+                <div class="edit-row"><label>Due</label>${editField('DueDate','text',txt(sp,'DueDate'))}</div>
+                ${epics.map((ep,ei) => renderEpicEdit(ep,si,ei)).join('')}
+                <button class="btn btn-sm" onclick="addEpic(this,${si})" style="margin-top:6px">${t('addEpic')}</button>
+            </div></div>`;
+    }).join('');
+    return html;
+}
+
+function renderEpicEdit(epic,si,ei) {
+    const stories = Array.from(epic.querySelectorAll('Stories > Story'));
+    return `<div class="nested-card" data-ei="${ei}">
+        <div class="edit-row"><label>Title</label>${editField('Title','text',txt(epic,'Title'))}</div>
+        <div class="edit-row"><label>Desc</label>${editField('Description','textarea',txt(epic,'Description'))}</div>
+        <div class="edit-row"><label>Priority</label>${editField('Priority','priority',txt(epic,'Priority'))}</div>
+        <div class="edit-row"><label>Component</label>${editField('Component','text',txt(epic,'Component'))}</div>
+        <button class="btn-icon danger" onclick="removeNode(this,'epic')" style="margin-bottom:6px">&times; Remove epic</button>
+        ${stories.map((st,sti) => renderStoryEdit(st,si,ei,sti)).join('')}
+        <button class="btn btn-sm" onclick="addStory(this,${si},${ei})">${t('addStory')}</button>
     </div>`;
 }
 
-// ===== HELPERS =====
+function renderStoryEdit(story,si,ei,sti) {
+    const criteria = listItems(story,'AcceptanceCriteria','Criterion');
+    const subtasks = Array.from(story.querySelectorAll('SubTasks > Task'));
+    return `<div class="nested-card" style="margin-left:8px;border-style:dashed" data-sti="${sti}">
+        <div class="edit-row"><label>Title</label>${editField('Title','text',txt(story,'Title'))}</div>
+        <div class="edit-row"><label>Desc</label>${editField('Description','textarea',txt(story,'Description'))}</div>
+        <div class="edit-row"><label>Points</label>${editField('StoryPoints','number',txt(story,'StoryPoints'))}</div>
+        <div class="edit-row"><label>Priority</label>${editField('Priority','priority',txt(story,'Priority'))}</div>
+        <div class="edit-row"><label>Estimate</label>${editField('OriginalEstimate','text',txt(story,'OriginalEstimate'))}</div>
+        <div class="edit-row"><label>Due</label>${editField('DueDate','text',txt(story,'DueDate'))}</div>
+        <button class="btn-icon danger" onclick="removeNode(this,'story')">&times; Remove</button>
+        <p class="sub-title" style="font-size:.82rem">${t('criteria')}</p>
+        <div class="edit-list" data-list="criteria">
+            ${criteria.map((c,ci) => `<div class="edit-row"><input class="edit-input" data-ci="${ci}" value="${esc(c)}"><button class="btn-icon danger" onclick="removeListItem(this,'criterion')">&times;</button></div>`).join('')}
+            <button class="btn btn-sm" onclick="addListItem(this,'criterion')">${t('addCriterion')}</button>
+        </div>
+        <p class="sub-title" style="font-size:.82rem">${t('subtasks')}</p>
+        ${subtasks.map((tk,ti) => `<div class="nested-card" style="background:var(--surface-alt)" data-ti="${ti}">
+            <div class="edit-row"><label>Title</label>${editField('Title','text',txt(tk,'Title'))}</div>
+            <div class="edit-row"><label>Desc</label>${editField('Description','textarea',txt(tk,'Description'))}</div>
+            <div class="edit-row"><label>Priority</label>${editField('Priority','priority',txt(tk,'Priority'))}</div>
+            <div class="edit-row"><label>Estimate</label>${editField('OriginalEstimate','text',txt(tk,'OriginalEstimate'))}</div>
+            <button class="btn-icon danger" onclick="removeNode(this,'subtask')">&times;</button>
+        </div>`).join('')}
+        <button class="btn btn-sm" onclick="addSubtask(this,${si},${ei},${sti})">${t('addSubtask')}</button>
+    </div>`;
+}
+
+// ======= EDIT ACTIONS: COLLECT & SAVE =======
+function collectEdits() {
+    if (!state.xmlDoc) return;
+    // PRINCE2
+    const p2 = state.xmlDoc.querySelector('PRINCE2Project');
+    if (p2) {
+        const stages = Array.from(p2.querySelectorAll('Stages > Stage'));
+        document.querySelectorAll('.accordion[data-si]').forEach(acc => {
+            const si = +acc.dataset.si;
+            const stage = stages[si]; if (!stage) return;
+            acc.querySelectorAll(':scope > .acc-body > .edit-row [data-tag]').forEach(inp => {
+                setXmlText(stage, inp.dataset.tag, inp.value);
+            });
+            // outputs
+            const outList = acc.querySelector('[data-list="outputs"]');
+            if (outList) {
+                let outs = stage.querySelector('Outputs');
+                if (!outs) { outs = state.xmlDoc.createElement('Outputs'); stage.appendChild(outs); }
+                outs.innerHTML = '';
+                outList.querySelectorAll('input.edit-input').forEach(inp => {
+                    const o = state.xmlDoc.createElement('Output'); o.textContent = inp.value; outs.appendChild(o);
+                });
+            }
+            // risks
+            const riskList = acc.querySelector('[data-list="risks"]');
+            if (riskList) {
+                let rsk = stage.querySelector('Risks');
+                if (!rsk) { rsk = state.xmlDoc.createElement('Risks'); stage.appendChild(rsk); }
+                rsk.innerHTML = '';
+                riskList.querySelectorAll('input.edit-input').forEach(inp => {
+                    const r = state.xmlDoc.createElement('Risk'); r.textContent = inp.value; rsk.appendChild(r);
+                });
+            }
+            // tasks
+            const taskCards = Array.from(acc.querySelectorAll('.nested-card[data-ti]'));
+            const xmlTasks = Array.from(stage.querySelectorAll('Tasks > Task'));
+            taskCards.forEach((card, ti) => {
+                const xmlTask = xmlTasks[ti]; if (!xmlTask) return;
+                card.querySelectorAll('[data-tag]').forEach(inp => setXmlText(xmlTask, inp.dataset.tag, inp.value));
+            });
+        });
+    }
+    // Scrum
+    const sc = state.xmlDoc.querySelector('ScrumProject');
+    if (sc) {
+        const sprints = Array.from(sc.querySelectorAll('Sprints > Sprint'));
+        document.querySelectorAll('.accordion[data-spri]').forEach(acc => {
+            const si = +acc.dataset.spri;
+            const sprint = sprints[si]; if (!sprint) return;
+            acc.querySelectorAll(':scope > .acc-body > .edit-row [data-tag]').forEach(inp => {
+                setXmlText(sprint, inp.dataset.tag, inp.value);
+            });
+            const epicCards = Array.from(acc.querySelectorAll('.nested-card[data-ei]'));
+            const xmlEpics = Array.from(sprint.querySelectorAll('Epics > Epic'));
+            epicCards.forEach((eCard, ei) => {
+                const xmlEpic = xmlEpics[ei]; if (!xmlEpic) return;
+                eCard.querySelectorAll(':scope > .edit-row [data-tag]').forEach(inp => setXmlText(xmlEpic, inp.dataset.tag, inp.value));
+                const storyCards = Array.from(eCard.querySelectorAll('.nested-card[data-sti]'));
+                const xmlStories = Array.from(xmlEpic.querySelectorAll('Stories > Story'));
+                storyCards.forEach((sCard, sti) => {
+                    const xmlStory = xmlStories[sti]; if (!xmlStory) return;
+                    sCard.querySelectorAll(':scope > .edit-row [data-tag]').forEach(inp => setXmlText(xmlStory, inp.dataset.tag, inp.value));
+                    // criteria
+                    const critList = sCard.querySelector('[data-list="criteria"]');
+                    if (critList) {
+                        let ac = xmlStory.querySelector('AcceptanceCriteria');
+                        if (!ac) { ac = state.xmlDoc.createElement('AcceptanceCriteria'); xmlStory.appendChild(ac); }
+                        ac.innerHTML = '';
+                        critList.querySelectorAll('input.edit-input').forEach(inp => {
+                            const c = state.xmlDoc.createElement('Criterion'); c.textContent = inp.value; ac.appendChild(c);
+                        });
+                    }
+                    // subtasks
+                    const stCards = Array.from(sCard.querySelectorAll('.nested-card[data-ti]'));
+                    const xmlSubs = Array.from(xmlStory.querySelectorAll('SubTasks > Task'));
+                    stCards.forEach((tCard, ti) => {
+                        const xmlSub = xmlSubs[ti]; if (!xmlSub) return;
+                        tCard.querySelectorAll('[data-tag]').forEach(inp => setXmlText(xmlSub, inp.dataset.tag, inp.value));
+                    });
+                });
+            });
+        });
+    }
+}
+
+async function saveEdits(projectId) {
+    collectEdits();
+    const xml = new XMLSerializer().serializeToString(state.xmlDoc);
+    try {
+        const project = state.projects.find(p => p.id === projectId);
+        const r = await fetch('/api/projects/' + projectId, {
+            method:'PUT', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({name: project.name, description: project.description, xmlContent: xml})
+        });
+        if (!r.ok) throw new Error('HTTP '+r.status);
+        state.editMode = false; state.xmlDoc = null;
+        await loadProjects();
+        toast(t('editsSaved'), 'success');
+    } catch (err) { toast(t('editsSaveFail')+': '+err.message, 'error'); }
+}
+
+// ======= EDIT ACTIONS: ADD/REMOVE =======
+function removeNode(btn, type) { btn.closest('.nested-card,.accordion').remove(); }
+function removeListItem(btn) { btn.closest('.edit-row').remove(); }
+
+function addListItem(btn, type) {
+    const row = document.createElement('div'); row.className = 'edit-row';
+    row.innerHTML = `<input class="edit-input" value=""><button class="btn-icon danger" onclick="removeListItem(this)">&times;</button>`;
+    btn.parentNode.insertBefore(row, btn);
+}
+
+function addTask(btn, si) {
+    const p2 = state.xmlDoc.querySelector('PRINCE2Project');
+    const stages = Array.from(p2.querySelectorAll('Stages > Stage'));
+    const stage = stages[si]; if (!stage) return;
+    let tasks = stage.querySelector('Tasks');
+    if (!tasks) { tasks = state.xmlDoc.createElement('Tasks'); stage.appendChild(tasks); }
+    const tk = state.xmlDoc.createElement('Task');
+    ['Title','Description','Priority','OriginalEstimate'].forEach(tag => { const el = state.xmlDoc.createElement(tag); el.textContent = tag==='Priority'?'Medium':''; tk.appendChild(el); });
+    tasks.appendChild(tk);
+    renderDetail(state.activeId);
+}
+
+function addStage() {
+    const p2 = state.xmlDoc.querySelector('PRINCE2Project');
+    let stages = p2.querySelector('Stages');
+    if (!stages) { stages = state.xmlDoc.createElement('Stages'); p2.appendChild(stages); }
+    const s = state.xmlDoc.createElement('Stage');
+    ['Name','Description','Priority','Component','OriginalEstimate','DueDate'].forEach(tag => { const el = state.xmlDoc.createElement(tag); el.textContent = tag==='Priority'?'Medium':''; s.appendChild(el); });
+    const tasks = state.xmlDoc.createElement('Tasks'); s.appendChild(tasks);
+    const outs = state.xmlDoc.createElement('Outputs'); s.appendChild(outs);
+    const risks = state.xmlDoc.createElement('Risks'); s.appendChild(risks);
+    stages.appendChild(s);
+    collectEdits();
+    renderDetail(state.activeId);
+}
+
+function addEpic(btn, si) {
+    const sc = state.xmlDoc.querySelector('ScrumProject');
+    const sprint = Array.from(sc.querySelectorAll('Sprints > Sprint'))[si]; if (!sprint) return;
+    let epics = sprint.querySelector('Epics');
+    if (!epics) { epics = state.xmlDoc.createElement('Epics'); sprint.appendChild(epics); }
+    const ep = state.xmlDoc.createElement('Epic');
+    ['Title','Description','Priority','Component','Labels'].forEach(tag => { const el = state.xmlDoc.createElement(tag); el.textContent = tag==='Priority'?'Medium':''; ep.appendChild(el); });
+    const stories = state.xmlDoc.createElement('Stories'); ep.appendChild(stories);
+    epics.appendChild(ep);
+    collectEdits();
+    renderDetail(state.activeId);
+}
+
+function addStory(btn, si, ei) {
+    const sc = state.xmlDoc.querySelector('ScrumProject');
+    const epic = Array.from(sc.querySelectorAll('Sprints > Sprint'))[si]?.querySelectorAll('Epics > Epic')[ei]; if (!epic) return;
+    let stories = epic.querySelector('Stories');
+    if (!stories) { stories = state.xmlDoc.createElement('Stories'); epic.appendChild(stories); }
+    const st = state.xmlDoc.createElement('Story');
+    ['Title','Description','StoryPoints','Priority','OriginalEstimate','DueDate','Labels'].forEach(tag => {
+        const el = state.xmlDoc.createElement(tag); el.textContent = tag==='Priority'?'Medium':tag==='StoryPoints'?'3':''; st.appendChild(el);
+    });
+    st.appendChild(state.xmlDoc.createElement('AcceptanceCriteria'));
+    st.appendChild(state.xmlDoc.createElement('SubTasks'));
+    stories.appendChild(st);
+    collectEdits();
+    renderDetail(state.activeId);
+}
+
+function addSubtask(btn, si, ei, sti) {
+    const sc = state.xmlDoc.querySelector('ScrumProject');
+    const story = Array.from(sc.querySelectorAll('Sprints > Sprint'))[si]?.querySelectorAll('Epics > Epic')[ei]?.querySelectorAll('Stories > Story')[sti];
+    if (!story) return;
+    let subs = story.querySelector('SubTasks');
+    if (!subs) { subs = state.xmlDoc.createElement('SubTasks'); story.appendChild(subs); }
+    const tk = state.xmlDoc.createElement('Task');
+    ['Title','Description','Priority','OriginalEstimate'].forEach(tag => { const el = state.xmlDoc.createElement(tag); el.textContent = tag==='Priority'?'Medium':''; tk.appendChild(el); });
+    subs.appendChild(tk);
+    collectEdits();
+    renderDetail(state.activeId);
+}
+
+// ========================= DECORATION EFFECTS =========================
+
+// 1. Vertical line — GSAP scrub draw (called inside setupAccordionScrollTrigger)
+function setupVline(scroller) {
+    const vline = document.querySelector('#detailContent .acc-vline');
+    if (!vline || !window.gsap || !window.ScrollTrigger) return;
+    const wrap = vline.closest('.acc-timeline-wrap');
+    if (!wrap) return;
+    gsap.set(vline, {scaleY: 0});
+    ScrollTrigger.create({
+        trigger: wrap,
+        scroller: scroller,
+        start: 'top 85%',
+        end: 'bottom 15%',
+        scrub: 1.2,
+        onUpdate: self => { gsap.set(vline, {scaleY: self.progress}); }
+    });
+}
+
+// 2. Floating mini-map navigator (fixed right side)
+function clearMinimap() {
+    const mm = document.getElementById('accMinimap');
+    if (mm) mm.remove();
+}
+function setupMinimap(accordions) {
+    clearMinimap();
+    if (!accordions || !accordions.length) return;
+    const themeColors = ['var(--accent)','var(--green)','var(--purple)','var(--yellow)','var(--teal)'];
+    const mm = document.createElement('div');
+    mm.className = 'acc-minimap'; mm.id = 'accMinimap';
+    const dots = [];
+    accordions.forEach((acc, i) => {
+        const theme = +(acc.dataset.theme||1);
+        const clr = themeColors[(theme-1)%5];
+        const dot = document.createElement('button');
+        dot.className = 'minimap-dot';
+        dot.style.setProperty('--dot-clr', clr);
+        const nameEl = acc.querySelector('.acc-title');
+        const label = nameEl ? nameEl.textContent.trim() : 'Item '+(i+1);
+        const tip = document.createElement('span');
+        tip.className = 'dot-tooltip';
+        tip.textContent = label.length > 22 ? label.slice(0,20)+'…' : label;
+        dot.appendChild(tip);
+        dot.addEventListener('click', () => acc.scrollIntoView({behavior:'smooth', block:'start'}));
+        mm.appendChild(dot);
+        dots.push(dot);
+    });
+    document.body.appendChild(mm);
+    // Observe accordion visibility to highlight active dot
+    const scroller = document.querySelector('.detail-panel');
+    const obs = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+            const idx = Array.from(accordions).indexOf(entry.target);
+            if (idx !== -1 && dots[idx]) dots[idx].classList.toggle('active', entry.isIntersecting);
+        });
+    }, {root: scroller, threshold: 0.25});
+    accordions.forEach(acc => obs.observe(acc));
+}
+
+// 3. Stat counter — animate acc-chip numbers from 0 on accordion open
+function animateChips(body) {
+    if (!body || !window.gsap) return;
+    body.querySelectorAll('.acc-chip').forEach(chip => {
+        if (chip.dataset.chipped) return;
+        chip.dataset.chipped = '1';
+        const m = chip.textContent.match(/^(\d+)(.*)/);
+        if (!m) return;
+        const target = +m[1], suffix = m[2];
+        const obj = {val: 0};
+        gsap.to(obj, {val: target, duration: 0.65, ease: 'power2.out',
+            onUpdate: () => { chip.textContent = Math.round(obj.val) + suffix; }
+        });
+    });
+}
+
+// 4. Ripple effect on header click
+function spawnRipple(e, header) {
+    const r = document.createElement('span');
+    r.className = 'acc-ripple';
+    const rect = header.getBoundingClientRect();
+    const size = Math.max(rect.width, rect.height) * 1.6;
+    r.style.width = r.style.height = size + 'px';
+    r.style.left = (e.clientX - rect.left - size / 2) + 'px';
+    r.style.top  = (e.clientY - rect.top  - size / 2) + 'px';
+    header.appendChild(r);
+    if (window.gsap) {
+        gsap.fromTo(r, {scale: 0, opacity: 0.28}, {scale: 1, opacity: 0, duration: 0.6, ease: 'power2.out', onComplete: () => r.remove()});
+    } else { setTimeout(() => r.remove(), 650); }
+}
+
+// 6. Typewriter for acc-title on first open
+function typewriterEl(el) {
+    if (!el || el.dataset.typed) return;
+    el.dataset.typed = '1';
+    const text = el.textContent;
+    el.textContent = '';
+    const cursor = document.createElement('span');
+    cursor.textContent = '|';
+    cursor.style.cssText = 'animation:twCursor .7s step-end infinite;color:var(--theme-clr,var(--accent))';
+    el.appendChild(cursor);
+    let i = 0;
+    const iv = setInterval(() => {
+        cursor.before(document.createTextNode(text[i]));
+        i++;
+        if (i >= text.length) { clearInterval(iv); setTimeout(() => cursor.remove(), 900); }
+    }, 32);
+}
+
+// ========================= HELPERS =========================
 function buildChips(node, fields) {
     return fields.map(f => {
-        const v = txt(node, f);
-        if (!v) return '';
-        if (f === 'Priority') return `<span class="acc-chip pri-${v.toLowerCase()}">${esc(v)}</span>`;
-        if (f === 'Component') return `<span class="acc-chip component">${esc(v)}</span>`;
-        if (f === 'OriginalEstimate') return `<span class="acc-chip estimate">${esc(v)}</span>`;
-        if (f === 'StoryPoints') return `<span class="acc-chip points">${esc(v)} SP</span>`;
-        if (f === 'DueDate') return `<span class="acc-chip date">${esc(v)}</span>`;
+        const v = txt(node,f); if (!v) return '';
+        if (f==='Priority') return `<span class="acc-chip pri-${v.toLowerCase()}">${esc(v)}</span>`;
+        if (f==='Component') return `<span class="acc-chip component">${esc(v)}</span>`;
+        if (f==='OriginalEstimate') return `<span class="acc-chip estimate">${esc(v)}</span>`;
+        if (f==='StoryPoints') return `<span class="acc-chip points">${esc(v)} SP</span>`;
+        if (f==='DueDate') return `<span class="acc-chip date">${esc(v)}</span>`;
         return `<span class="acc-chip" style="background:rgba(255,255,255,.06);color:var(--muted)">${esc(v)}</span>`;
     }).join('');
 }
-
 function labelsChips(str) {
-    return str.split(',').map(l => l.trim()).filter(Boolean).map(l =>
-        `<span class="acc-chip" style="background:rgba(255,255,255,.05);color:var(--muted);font-size:.7rem">#${esc(l)}</span>`
-    ).join('');
+    return str.split(',').map(l=>l.trim()).filter(Boolean).map(l=>`<span class="acc-chip" style="background:rgba(255,255,255,.05);color:var(--muted);font-size:.7rem">#${esc(l)}</span>`).join('');
 }
-
 function listItems(node, wrapper, item) {
-    const w = node.querySelector(wrapper);
-    if (!w) return [];
-    return Array.from(w.querySelectorAll(item)).map(el => el.textContent.trim()).filter(Boolean);
+    const w = node.querySelector(wrapper); if (!w) return [];
+    return Array.from(w.querySelectorAll(item)).map(el=>el.textContent.trim()).filter(Boolean);
 }
-
-function txt(node, tag) { const el = node ? node.querySelector(tag) : null; return el ? el.textContent.trim() : ''; }
-
+function txt(node, tag) { const el = node?node.querySelector(tag):null; return el?el.textContent.trim():''; }
 function parseXml(xmlContent) {
     if (!xmlContent) return {prince2:null,scrum:null};
     let c = xmlContent.trim();
     const lo = c.toLowerCase();
-    const s = lo.indexOf('<projectplans>');
-    const e = lo.lastIndexOf('</projectplans>');
-    if (s !== -1 && e !== -1) c = c.slice(s, e + '</projectplans>'.length);
-    const doc = new DOMParser().parseFromString(c, 'text/xml');
+    const s = lo.indexOf('<projectplans>'), e = lo.lastIndexOf('</projectplans>');
+    if (s!==-1 && e!==-1) c = c.slice(s, e+'</projectplans>'.length);
+    const doc = new DOMParser().parseFromString(c,'text/xml');
     if (doc.querySelector('parsererror')) return {prince2:null,scrum:null};
     return { prince2: doc.querySelector('PRINCE2Project'), scrum: doc.querySelector('ScrumProject') };
 }
-
 function esc(v) { return String(v||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
-
-function buildJiraLinks(projectId) {
-    const links = jiraExports[projectId];
-    if (!links) return '';
-    const parts = [];
-    if (links.prince2) parts.push(`<a href="${links.prince2.url}" target="_blank" class="btn" style="text-decoration:none">PRINCE2: ${links.prince2.key}</a>`);
-    if (links.scrum) parts.push(`<a href="${links.scrum.url}" target="_blank" class="btn" style="text-decoration:none">Scrum: ${links.scrum.key}</a>`);
-    return parts.length ? '<div style="display:flex;gap:8px;flex-wrap:wrap">' + parts.join('') + '</div>' : '';
+function buildJiraLink(projectId) {
+    const links = jiraExports[projectId]; if (!links) return '';
+    // Show single Jira project link (both methodologies export to the same project)
+    const link = links.prince2 || links.scrum;
+    if (!link) return '';
+    return `<div style="display:flex;gap:8px;flex-wrap:wrap"><a href="${link.url}" target="_blank" class="btn btn-success" style="text-decoration:none">Jira: ${link.key}</a></div>`;
 }
 
-// ===== ACTIONS =====
+// ========================= ACTIONS =========================
 async function deleteProject(id) {
-    if (!confirm('Naozaj chces zmazat tento projekt?')) return;
+    if (!confirm(t('confirmDelete'))) return;
     try {
-        await fetch('/api/projects/' + id, {method:'DELETE'});
+        await fetch('/api/projects/'+id, {method:'DELETE'});
         delete jiraExports[id];
         localStorage.setItem('jiraExports', JSON.stringify(jiraExports));
         state.activeId = null;
         await loadProjects();
-        document.getElementById('detailContent').style.display = 'none';
-        document.getElementById('detailEmpty').style.display = 'flex';
-        toast('Projekt bol zmazany.', 'success');
-    } catch (err) {
-        toast('Nepodarilo sa zmazat projekt.', 'error');
+        document.getElementById('detailContent').style.display='none';
+        document.getElementById('detailEmpty').style.display='flex';
+        toast(t('deleteOk'), 'success');
+    } catch (err) { toast(t('deleteFail'), 'error'); }
+}
+
+async function doExport(id, methodology) {
+    const project = state.projects.find(p => p.id === id);
+    if (!project) return;
+    // Validate first
+    const errors = validateXmlForExport(project.xmlContent, methodology);
+    if (errors.length) {
+        showValidationModal(errors, () => exportProject(id, methodology));
+        return;
     }
+    exportProject(id, methodology);
 }
 
 async function exportProject(id, methodology) {
     const project = state.projects.find(p => p.id === id);
     if (!project) return;
     setLoading(true);
+
+    // Show loading overlay with export progress
+    const titleText = state.lang==='sk' ? 'Export do Jira...' : 'Exporting to Jira...';
+    const subText = state.lang==='sk'
+        ? `Odosielam ${methodology} úlohy do Jira projektu.`
+        : `Sending ${methodology} tasks to Jira project.`;
+    showLoadingOverlay(titleText, subText);
+
+    // Parse XML to show what's being exported
+    const parsed = parseXml(project.xmlContent);
+    if (methodology === 'PRINCE2' && parsed.prince2) {
+        const stages = Array.from(parsed.prince2.querySelectorAll('Stages > Stage'));
+        stages.forEach((s,i) => {
+            const name = txt(s,'Name') || ('Stage '+(i+1));
+            addLoadingLog('→ ' + name);
+            const tasks = Array.from(s.querySelectorAll('Tasks > Task'));
+            tasks.forEach(tk => addLoadingLog('   ↳ ' + (txt(tk,'Title') || 'Task')));
+        });
+    } else if (methodology === 'Scrum' && parsed.scrum) {
+        const sprints = Array.from(parsed.scrum.querySelectorAll('Sprints > Sprint'));
+        sprints.forEach((sp,i) => {
+            const name = txt(sp,'Name') || ('Sprint '+(i+1));
+            addLoadingLog('→ ' + name);
+            const epics = Array.from(sp.querySelectorAll('Epics > Epic'));
+            epics.forEach(ep => {
+                addLoadingLog('   ↳ ' + (txt(ep,'Title') || 'Epic'));
+                const stories = Array.from(ep.querySelectorAll('Stories > Story'));
+                stories.forEach(st => addLoadingLog('      • ' + (txt(st,'Title') || 'Story')));
+            });
+        });
+    }
+
     try {
-        const r = await fetch('/api/projects/' + id + '/export-to-jira', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
+        const r = await fetch('/api/projects/'+id+'/export-to-jira', {
+            method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({methodology, projectName: project.name})
         });
         const result = await r.json();
@@ -537,36 +2113,66 @@ async function exportProject(id, methodology) {
             if (!jiraExports[id]) jiraExports[id] = {};
             jiraExports[id][methodology.toLowerCase()] = {key: result.projectKey, url: result.projectUrl};
             localStorage.setItem('jiraExports', JSON.stringify(jiraExports));
-            toast('Export uspesny! Vytvorenych ' + result.issues.length + ' poloziek v Jira.', 'success');
+            const ic = result.issues?result.issues.length:0;
+            const ec = result.errors?result.errors.length:0;
+            if (ec>0) {
+                addLoadingLog('⚠ ' + tf('exportPartial',ic,ec), 'err');
+                result.errors.forEach(e => addLoadingLog('  ✗ '+e, 'err'));
+                // Keep overlay visible for 2s so user can read errors
+                await new Promise(r => setTimeout(r, 2000));
+                toast(tf('exportPartial',ic,ec),'info');
+                console.warn('Export errors:',result.errors);
+            } else {
+                addLoadingLog('✓ ' + tf('exported',ic), 'ok');
+                toast(tf('exported',ic),'success');
+            }
             renderDetail(id);
         } else {
-            toast('Export zlyhal: ' + result.message, 'error');
+            let msg = result.message||'Unknown error';
+            addLoadingLog('✗ ' + msg, 'err');
+            if (result.errors&&result.errors.length) {
+                result.errors.forEach(e => addLoadingLog('  ✗ '+e, 'err'));
+                msg += '\n'+result.errors[0];
+            }
+            await new Promise(r => setTimeout(r, 2000));
+            toast(t('exportFail')+': '+msg, 'error');
         }
     } catch (err) {
-        toast('Export sa nepodaril: ' + err.message, 'error');
-    } finally {
+        addLoadingLog('✗ ' + err.message, 'err');
+        toast(t('exportFail')+': '+err.message, 'error');
+    }
+    finally {
         setLoading(false);
+        removeLoadingOverlay();
     }
 }
 
-async function saveXml(id) {
-    const project = state.projects.find(p => p.id === id);
-    if (!project) return;
-    const xml = document.getElementById('xmlEditor').value.trim();
-    if (!xml) return;
+// ========================= JIRA TEST =========================
+async function testJiraConnection() {
+    const btn = event.target;
+    const orig = btn.textContent;
+    btn.textContent = '⏳ Testujem…';
+    btn.disabled = true;
     try {
-        const r = await fetch('/api/projects/' + id, {
-            method: 'PUT',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({name: project.name, description: project.description, xmlContent: xml})
-        });
-        if (!r.ok) throw new Error('HTTP ' + r.status);
-        await loadProjects();
-        toast('XML bolo ulozene.', 'success');
+        const r = await fetch('/api/jira/test');
+        const data = await r.json();
+        if (data.connected) {
+            let msg = '✅ Jira OK — ' + (data.user || '');
+            if (data.projectFound) msg += ' | Projekt: ' + (data.projectName || '');
+            else msg += ' | ⚠️ Projekt nenájdený: ' + (data.projectError || '');
+            toast(msg, data.projectFound ? 'success' : 'info');
+        } else {
+            toast('❌ ' + (data.error || 'Jira pripojenie zlyhalo'), 'error');
+        }
     } catch (err) {
-        toast('Nepodarilo sa ulozit XML: ' + err.message, 'error');
+        toast('❌ Chyba pri testovaní Jira: ' + err.message, 'error');
+    } finally {
+        btn.textContent = orig;
+        btn.disabled = false;
     }
 }
+
+// saveXml removed — inline editing replaces the XML tab
 </script>
 </body>
 </html>

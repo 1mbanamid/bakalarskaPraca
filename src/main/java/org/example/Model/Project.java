@@ -22,8 +22,9 @@ public class Project {
 
     private String startDate;
     private String deadline;
-    private String budget;
-    private Integer teamSize;
+
+    @Column(length = 2)
+    private String language = "sk";
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
@@ -94,10 +95,7 @@ public class Project {
     public String getDeadline() { return deadline; }
     public void setDeadline(String deadline) { this.deadline = deadline; }
 
-    public String getBudget() { return budget; }
-    public void setBudget(String budget) { this.budget = budget; }
-
-    public Integer getTeamSize() { return teamSize; }
-    public void setTeamSize(Integer teamSize) { this.teamSize = teamSize; }
+    public String getLanguage() { return language; }
+    public void setLanguage(String language) { this.language = language; }
 }
 
