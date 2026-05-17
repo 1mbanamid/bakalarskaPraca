@@ -21,6 +21,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Matcher;
@@ -36,6 +38,9 @@ public class OpenAiService {
     private final ObjectMapper objectMapper = new ObjectMapper();
     private static final String LOG_DIRECTORY = "logs";
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss");
+
+    /** Represents a single phase (PRINCE2) or sprint (Scrum) specification in the skeleton. */
+    public record ItemSpec(String name, String description) {}
 
     public OpenAiService(
         @Value("${azure.openai.api-key}") String apiKey,
@@ -54,78 +59,164 @@ public class OpenAiService {
 
     // ========== PUBLIC API ==========
 
-    public String generateProjectPlan(String projectName, String projectDescription,
-                                      String startDate, String deadline, String lang) {
+    /**
+     * Phase 1: Generate a lightweight skeleton (proposed phases + sprints with names and short descriptions).
+     * The user can then edit, add, remove items and disable one methodology before calling generateProjectPlan.
+     * Returns the raw JSON skeleton response — parsing is done by the caller.
+     */
+    public String generateSkeleton(String projectName, String projectDescription,
+                                   String startDate, String deadline, String lang) {
         if (lang == null || lang.isBlank()) lang = "sk";
         String timestamp = LocalDateTime.now().format(DATE_FORMATTER);
-        log.info("Generating plan for: {} (startDate={}, deadline={}, lang={})",
-            projectName, startDate, deadline, lang);
+        log.info("Generating SKELETON for: {} (lang={})", projectName, lang);
+
+        String inputBlock = buildInputBlock(projectName, projectDescription, startDate, deadline, lang);
+        String prompt = "en".equals(lang)
+            ? buildSkeletonPromptEN(inputBlock)
+            : buildSkeletonPrompt(inputBlock);
+
+        String logName = String.format("request_%s_skeleton.log", timestamp);
+        logToFile(logName, "=== REQUEST ===", prompt);
+
+        String json = callOpenAiAsync(prompt, logName)
+            .timeout(java.time.Duration.ofSeconds(90))
+            .block();
+
+        if (json == null || json.isBlank()) {
+            throw new RuntimeException("OpenAI nevratil skeleton.");
+        }
+        return extractJsonBlock(json);
+    }
+
+    /**
+     * Phase 2: Generate a full plan based on user-customized phases and sprints.
+     * Either list may be null or empty to disable that methodology entirely.
+     * Each list is capped at 10 items.
+     */
+    public String generateProjectPlan(String projectName, String projectDescription,
+                                      String startDate, String deadline, String lang,
+                                      List<ItemSpec> phases, List<ItemSpec> sprints) {
+        if (lang == null || lang.isBlank()) lang = "sk";
+        boolean hasPrince = phases != null && !phases.isEmpty();
+        boolean hasScrum = sprints != null && !sprints.isEmpty();
+        if (!hasPrince && !hasScrum) {
+            throw new RuntimeException("Musi byt vybrana aspon jedna metodologia (PRINCE2 alebo Scrum).");
+        }
+        if (hasPrince && phases.size() > 10) {
+            throw new RuntimeException("Maximum 10 faz pre PRINCE2.");
+        }
+        if (hasScrum && sprints.size() > 10) {
+            throw new RuntimeException("Maximum 10 sprintov pre Scrum.");
+        }
+
+        String timestamp = LocalDateTime.now().format(DATE_FORMATTER);
+        log.info("Generating plan for: {} (phases={}, sprints={}, lang={})",
+            projectName, hasPrince ? phases.size() : 0, hasScrum ? sprints.size() : 0, lang);
 
         String inputBlock = buildInputBlock(projectName, projectDescription, startDate, deadline, lang);
         String today = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
         String dateFrom = (startDate != null && !startDate.isEmpty()) ? startDate : today;
 
-        // Calculate sprint date ranges
-        String[][] sprintDates = calculateSprintDates(dateFrom, deadline);
+        // Build monos (one per phase + one per sprint)
+        List<Mono<String>> monos = new ArrayList<>();
+        List<String> phaseLogs = new ArrayList<>();
+        List<String> sprintLogs = new ArrayList<>();
+        String[][] phaseDates = null;
+        String[][] sprintDates = null;
 
-        // --- Build prompts: 1 PRINCE2 + 3 separate Scrum sprints ---
-        String princePrompt = "en".equals(lang)
-            ? buildPrince2PromptEN(inputBlock, dateFrom)
-            : buildPrince2Prompt(inputBlock, dateFrom);
-        String sprint1Prompt = "en".equals(lang)
-            ? buildScrumSprintPromptEN(inputBlock, 1, sprintDates)
-            : buildScrumSprintPrompt(inputBlock, 1, sprintDates);
-        String sprint2Prompt = "en".equals(lang)
-            ? buildScrumSprintPromptEN(inputBlock, 2, sprintDates)
-            : buildScrumSprintPrompt(inputBlock, 2, sprintDates);
-        String sprint3Prompt = "en".equals(lang)
-            ? buildScrumSprintPromptEN(inputBlock, 3, sprintDates)
-            : buildScrumSprintPrompt(inputBlock, 3, sprintDates);
+        if (hasPrince) {
+            phaseDates = calculateRangeDates(dateFrom, deadline, phases.size());
+            for (int i = 0; i < phases.size(); i++) {
+                ItemSpec p = phases.get(i);
+                String prompt = "en".equals(lang)
+                    ? buildPrince2PhasePromptEN(inputBlock, p, i + 1, phases.size(), phaseDates)
+                    : buildPrince2PhasePrompt(inputBlock, p, i + 1, phases.size(), phaseDates);
+                String logName = String.format("request_%s_prince2_phase%d.log", timestamp, i + 1);
+                logToFile(logName, "=== REQUEST ===", prompt);
+                phaseLogs.add(logName);
+                monos.add(callOpenAiAsync(prompt, logName));
+            }
+        }
 
-        String princeLog = String.format("request_%s_prince2.log", timestamp);
-        String sprint1Log = String.format("request_%s_scrum_sprint1.log", timestamp);
-        String sprint2Log = String.format("request_%s_scrum_sprint2.log", timestamp);
-        String sprint3Log = String.format("request_%s_scrum_sprint3.log", timestamp);
+        if (hasScrum) {
+            sprintDates = calculateRangeDates(dateFrom, deadline, sprints.size());
+            for (int i = 0; i < sprints.size(); i++) {
+                ItemSpec s = sprints.get(i);
+                String prompt = "en".equals(lang)
+                    ? buildScrumSprintPromptEN(inputBlock, s, i + 1, sprints.size(), sprintDates)
+                    : buildScrumSprintPrompt(inputBlock, s, i + 1, sprints.size(), sprintDates);
+                String logName = String.format("request_%s_scrum_sprint%d.log", timestamp, i + 1);
+                logToFile(logName, "=== REQUEST ===", prompt);
+                sprintLogs.add(logName);
+                monos.add(callOpenAiAsync(prompt, logName));
+            }
+        }
 
-        logToFile(princeLog, "=== REQUEST ===", princePrompt);
-        logToFile(sprint1Log, "=== REQUEST ===", sprint1Prompt);
-        logToFile(sprint2Log, "=== REQUEST ===", sprint2Prompt);
-        logToFile(sprint3Log, "=== REQUEST ===", sprint3Prompt);
+        log.info("🚀 Odosielam {} paralelnych poziadaviek na AI ({} PRINCE2 faz + {} Scrum sprintov)...",
+            monos.size(), hasPrince ? phases.size() : 0, hasScrum ? sprints.size() : 0);
 
-        // --- 4 PARALLEL API calls via Mono.zip ---
-        Mono<String> princeMono = callOpenAiAsync(princePrompt, princeLog);
-        Mono<String> sprint1Mono = callOpenAiAsync(sprint1Prompt, sprint1Log);
-        Mono<String> sprint2Mono = callOpenAiAsync(sprint2Prompt, sprint2Log);
-        Mono<String> sprint3Mono = callOpenAiAsync(sprint3Prompt, sprint3Log);
-
-        log.info("🚀 Odosielam 4 paralelné požiadavky na AI (PRINCE2 + 3 Scrum šprinty)...");
-
-        var results = Mono.zip(princeMono, sprint1Mono, sprint2Mono, sprint3Mono)
-            .timeout(java.time.Duration.ofSeconds(180))
+        List<String> results = Mono.zip(monos, array -> {
+                List<String> out = new ArrayList<>(array.length);
+                for (Object o : array) out.add((String) o);
+                return out;
+            })
+            .timeout(java.time.Duration.ofSeconds(240))
             .block();
 
         if (results == null) {
-            throw new RuntimeException("OpenAI nevrátil odpoveď.");
+            throw new RuntimeException("OpenAI nevratil odpoved.");
         }
 
-        String princeJsonResponse = results.getT1();
-        String sprint1Json = results.getT2();
-        String sprint2Json = results.getT3();
-        String sprint3Json = results.getT4();
+        // Split results back into prince and scrum lists
+        List<String> phaseJsons = hasPrince ? new ArrayList<>(results.subList(0, phases.size())) : List.of();
+        List<String> sprintJsons = hasScrum
+            ? new ArrayList<>(results.subList(hasPrince ? phases.size() : 0, results.size()))
+            : List.of();
 
-        String princeXml = convertPrince2JsonToXml(princeJsonResponse);
-        String scrumXml = convertScrumSprintsToXml(sprint1Json, sprint2Json, sprint3Json, projectName, projectDescription);
+        StringBuilder combined = new StringBuilder("<ProjectPlans>\n");
+        if (hasPrince) {
+            String princeXml = convertPrince2PhasesToXml(phaseJsons, projectName, projectDescription);
+            combined.append(princeXml).append("\n");
+        }
+        if (hasScrum) {
+            if (hasPrince) combined.append("\n");
+            String scrumXml = convertScrumSprintsToXml(sprintJsons, projectName, projectDescription);
+            combined.append(scrumXml).append("\n");
+        }
+        combined.append("</ProjectPlans>");
 
-        String combinedXml = "<ProjectPlans>\n" + princeXml + "\n\n" + scrumXml + "\n</ProjectPlans>";
-
+        String combinedXml = combined.toString();
         logToFile(String.format("request_%s_combined.log", timestamp), "=== COMBINED_XML ===", combinedXml);
 
         return combinedXml;
     }
 
-    /** Splits the project timeline into 3 equal sprint periods. Returns [3][2] array of [start, end] dates. */
+    /**
+     * Backward-compatible version — uses default 4 PRINCE2 phases + 3 Scrum sprints
+     * with AI-proposed names via a skeleton call. Kept for any legacy callers/tests.
+     */
+    public String generateProjectPlan(String projectName, String projectDescription,
+                                      String startDate, String deadline, String lang) {
+        // Default legacy behaviour: 4 PRINCE2 phases + 3 Scrum sprints with generic placeholder names.
+        // The user-facing flow now goes through generateSkeleton + generateProjectPlan(..., phases, sprints).
+        List<ItemSpec> phases = List.of(
+            new ItemSpec("Priprava a analyza", ""),
+            new ItemSpec("Navrh a planovanie", ""),
+            new ItemSpec("Realizacia", ""),
+            new ItemSpec("Dokoncenie a nasadenie", "")
+        );
+        List<ItemSpec> sprints = List.of(
+            new ItemSpec("Sprint 1 — zaciatok", ""),
+            new ItemSpec("Sprint 2 — realizacia", ""),
+            new ItemSpec("Sprint 3 — finalizacia", "")
+        );
+        return generateProjectPlan(projectName, projectDescription, startDate, deadline, lang, phases, sprints);
+    }
+
+    /** Splits [dateFrom, deadline] into N roughly equal periods. Returns [N][2] array of [start, end]. */
     // package-private for testing
-    String[][] calculateSprintDates(String dateFrom, String deadline) {
+    String[][] calculateRangeDates(String dateFrom, String deadline, int count) {
+        if (count < 1) count = 1;
         LocalDate start = LocalDate.parse(dateFrom);
         LocalDate end;
         if (deadline != null && !deadline.isEmpty()) {
@@ -135,13 +226,23 @@ public class OpenAiService {
         }
 
         long totalDays = ChronoUnit.DAYS.between(start, end);
-        long sprintDays = Math.max(totalDays / 3, 7);
+        if (totalDays < count * 7L) totalDays = count * 7L;
+        long slice = Math.max(totalDays / count, 7);
 
-        return new String[][] {
-            { start.toString(), start.plusDays(sprintDays).toString() },
-            { start.plusDays(sprintDays).toString(), start.plusDays(sprintDays * 2).toString() },
-            { start.plusDays(sprintDays * 2).toString(), end.toString() }
-        };
+        String[][] result = new String[count][2];
+        LocalDate cursor = start;
+        for (int i = 0; i < count; i++) {
+            LocalDate next = (i == count - 1) ? end : cursor.plusDays(slice);
+            result[i][0] = cursor.toString();
+            result[i][1] = next.toString();
+            cursor = next;
+        }
+        return result;
+    }
+
+    /** Legacy 3-sprint helper kept for tests. */
+    String[][] calculateSprintDates(String dateFrom, String deadline) {
+        return calculateRangeDates(dateFrom, deadline, 3);
     }
 
     // ========== INPUT BLOCK (shared) ==========
@@ -162,84 +263,211 @@ public class OpenAiService {
         return sb.toString();
     }
 
-    // ========== PRINCE2 PROMPT ==========
+    // ========== SKELETON PROMPT ==========
 
-    private String buildPrince2Prompt(String inputBlock, String dateFrom) {
+    private String buildSkeletonPrompt(String inputBlock) {
         return String.format("""
-                Si certifikovaný PRINCE2 projektový manažér. Vráť IBA platný JSON objekt. Žiadny text mimo JSON, žiadny Markdown.
+                Si skúsený projektový manažér. Navrhni ŠTRUKTÚRU projektu pre dve metodológie — PRINCE2 a Scrum.
+                NEGENERUJ detailné úlohy, riziká ani výstupy — iba návrh zoznamu fáz a šprintov s krátkym popisom.
+                Vráť IBA platný JSON objekt. Žiadny text mimo JSON, žiadny Markdown.
 
                 Vstupné údaje:
                 %s
-                DÔLEŽITÉ: Analyzuj popis projektu a vytvor plán, ktorý zodpovedá REÁLNEMU typu tohto podnikania/projektu.
-                Ak ide o softvérový projekt — použi fázy analýzy, vývoja, testovania a nasadenia.
-                Ak ide o fyzický podnik (kaviareň, obchod, reštauráciu) — použi fázy prípravy priestorov, nákupu vybavenia, náboru zamestnancov, marketingu a otvorenia.
-                Ak ide o iný typ projektu — prispôsob fázy podľa reálneho kontextu.
+                Analyzuj typ projektu a navrhni realistickú štruktúru.
+                Odporúčaný počet: 3–6 PRINCE2 fáz, 3–5 Scrum šprintov (maximum 10 v každej).
 
                 Vráť JSON v tejto štruktúre:
                 {
-                  "name": "stručný názov projektu",
-                  "description": "hlavný cieľ a prínos projektu",
-                  "stages": [
+                  "prince2": [
+                    { "name": "krátky názov fázy", "description": "1 veta – o čom je fáza" }
+                  ],
+                  "scrum": [
+                    { "name": "krátky názov šprintu", "description": "1 veta – ciel šprintu" }
+                  ]
+                }
+
+                Pravidlá:
+                1. Fázy a šprinty musia logicky nadväzovať a pokrývať celý projekt od začiatku do konca.
+                2. Názvy krátke a výstižné (2–5 slov), popisy maximálne 1 veta (do ~15 slov).
+                3. Texty po slovensky.
+                4. Žiadne placeholdery, žiadne "...".
+                """, inputBlock);
+    }
+
+    private String buildSkeletonPromptEN(String inputBlock) {
+        return String.format("""
+                You are an experienced project manager. Propose the STRUCTURE of the project for two methodologies — PRINCE2 and Scrum.
+                DO NOT generate detailed tasks, risks or outputs — only a list of phases and sprints with short descriptions.
+                Return ONLY a valid JSON object. No text outside JSON, no Markdown.
+
+                Input data:
+                %s
+                Analyze the project type and propose a realistic structure.
+                Recommended counts: 3–6 PRINCE2 phases, 3–5 Scrum sprints (maximum 10 each).
+
+                Return JSON in this structure:
+                {
+                  "prince2": [
+                    { "name": "short phase name", "description": "1 sentence – what this phase covers" }
+                  ],
+                  "scrum": [
+                    { "name": "short sprint name", "description": "1 sentence – sprint goal" }
+                  ]
+                }
+
+                Rules:
+                1. Phases and sprints must logically follow each other and cover the whole project from start to finish.
+                2. Names short and concise (2–5 words), descriptions at most 1 sentence (~15 words).
+                3. All texts in English.
+                4. No placeholders, no "...".
+                """, inputBlock);
+    }
+
+    // ========== PRINCE2 PHASE PROMPT (per-phase) ==========
+
+    private String buildPrince2PhasePrompt(String inputBlock, ItemSpec phase, int phaseNum, int totalPhases, String[][] phaseDates) {
+        String phaseName = phase.name() == null ? "" : phase.name();
+        String phaseDesc = phase.description() == null ? "" : phase.description();
+        return String.format("""
+                Si certifikovaný PRINCE2 projektový manažér. Vráť IBA platný JSON objekt pre JEDNU fázu. Žiadny text mimo JSON, žiadny Markdown.
+
+                Vstupné údaje:
+                %s
+                Toto je fáza %d z %d. Celkovo %d fáz pokrýva projekt od začiatku do konca.
+                Názov TEJTO fázy (zadaný používateľom): %s
+                Popis TEJTO fázy (zadaný používateľom): %s
+                Dátumový rozsah TEJTO fázy: %s až %s
+
+                DÔLEŽITÉ: Analyzuj popis projektu a vygeneruj obsah fázy, ktorý zodpovedá REÁLNEMU typu podnikania/projektu.
+                Ak ide o softvérový projekt — úlohy a riziká o analýze, vývoji, testovaní, nasadení.
+                Ak ide o fyzický podnik (kaviareň, obchod, reštauráciu) — úlohy o priestoroch, vybavení, dodávateľoch, personáli, marketingu.
+                Ak ide o iný typ — prispôsob obsah reálnemu kontextu.
+
+                Vráť JSON IBA pre túto fázu:
+                {
+                  "name": "%s",
+                  "description": "podrobný opis práce v tejto fáze",
+                  "dueDate": "%s",
+                  "priority": "High|Medium|Low",
+                  "labels": ["tag1","tag2"],
+                  "component": "kategória práce relevantná pre tento projekt",
+                  "originalEstimate": "2w",
+                  "outputs": ["merateľný výstup 1", "výstup 2"],
+                  "risks": ["riziko a mitigácia 1", "riziko 2"],
+                  "tasks": [
                     {
-                      "name": "názov fázy (summary v Jira)",
-                      "description": "podrobný opis práce vo fáze",
-                      "dueDate": "YYYY-MM-DD",
+                      "title": "názov úlohy (summary sub-tasku v Jira)",
+                      "description": "čo presne treba urobiť",
                       "priority": "High|Medium|Low",
-                      "labels": ["tag1","tag2"],
-                      "component": "kategória práce relevantná pre tento projekt",
-                      "originalEstimate": "2w",
-                      "outputs": ["merateľný výstup 1", "výstup 2"],
-                      "risks": ["riziko a mitigácia 1", "riziko 2"],
-                      "tasks": [
-                        {
-                          "title": "názov úlohy (summary sub-tasku v Jira)",
-                          "description": "čo presne treba urobiť",
-                          "priority": "High|Medium|Low",
-                          "dueDate": "YYYY-MM-DD",
-                          "labels": ["tag1"],
-                          "originalEstimate": "1d"
-                        }
-                      ]
+                      "dueDate": "YYYY-MM-DD",
+                      "labels": ["tag1"],
+                      "originalEstimate": "1d"
                     }
                   ]
                 }
 
                 Povinné pravidlá:
-                1. Presne 4 fázy (stages) logicky nadväzujúce a realistické pre daný typ projektu.
-                2. Dátumy >= %s, formát YYYY-MM-DD. Rozplánuj realisticky v rámci časového rámca.
-                3. Každá fáza: min. 2 outputs, 2 risks, 3 tasks.
+                1. Názov fázy (name) zachovaj presne podľa zadania používateľa.
+                2. Dátumy v rozsahu %s — %s, formát YYYY-MM-DD.
+                3. Min. 2 outputs, 2 risks, 3 tasks v tejto fáze.
                 4. originalEstimate: Jira formát — iba celé čísla: "1w", "1w 2d", "3d", "4h". NIKDY nepoužívaj desatinné čísla ako "1.5w".
-                5. component: vyber kategóriu relevantnú pre projekt (napr. pre IT: Backend, Frontend, DevOps; pre podnik: Priestory, Marketing, Personál, Logistika, Financie, Prevádzka).
-                6. Texty po slovensky, žiadne placeholdery.
-                7. Labels: relevantné pre kontext projektu.
-                8. Úlohy, riziká a výstupy musia byť KONKRÉTNE a REALISTICKÉ pre daný typ projektu — nie generické.
-
-                DÔLEŽITÉ: Vygeneruj KOMPLETNÝ obsah pre VŠETKY 4 fázy. NIKDY nepoužívaj "..." ani iné skratky.
-                """, inputBlock, dateFrom);
+                5. component: vyber kategóriu relevantnú pre projekt (napr. IT: Backend, Frontend, DevOps; Podnik: Priestory, Marketing, Personál, Logistika, Financie, Prevádzka).
+                6. Texty po slovensky, žiadne placeholdery, žiadne "...".
+                7. Úlohy, riziká a výstupy musia byť KONKRÉTNE a REALISTICKÉ pre daný typ projektu.
+                """,
+            inputBlock,
+            phaseNum, totalPhases, totalPhases,
+            phaseName,
+            phaseDesc,
+            phaseDates[phaseNum - 1][0], phaseDates[phaseNum - 1][1],
+            phaseName,
+            phaseDates[phaseNum - 1][1],
+            phaseDates[phaseNum - 1][0], phaseDates[phaseNum - 1][1]);
     }
 
-    // ========== SCRUM SPRINT PROMPT (per-sprint) ==========
+    private String buildPrince2PhasePromptEN(String inputBlock, ItemSpec phase, int phaseNum, int totalPhases, String[][] phaseDates) {
+        String phaseName = phase.name() == null ? "" : phase.name();
+        String phaseDesc = phase.description() == null ? "" : phase.description();
+        return String.format("""
+                You are a certified PRINCE2 project manager. Return ONLY a valid JSON object for ONE phase. No text outside JSON, no Markdown.
 
-    private String buildScrumSprintPrompt(String inputBlock, int sprintNum, String[][] sprintDates) {
+                Input data:
+                %s
+                This is phase %d of %d. Total %d phases cover the project from start to finish.
+                Name of THIS phase (provided by user): %s
+                Description of THIS phase (provided by user): %s
+                Date range of THIS phase: %s to %s
+
+                IMPORTANT: Analyze the project description and generate phase content that matches the REAL type of business/project.
+                If it is a software project — tasks and risks about analysis, development, testing, deployment.
+                If it is a physical business (cafe, shop, restaurant) — tasks about premises, equipment, suppliers, staff, marketing.
+                If it is another type — adapt content to the real context.
+
+                Return JSON ONLY for this phase:
+                {
+                  "name": "%s",
+                  "description": "detailed description of work in this phase",
+                  "dueDate": "%s",
+                  "priority": "High|Medium|Low",
+                  "labels": ["tag1","tag2"],
+                  "component": "work category relevant to this project",
+                  "originalEstimate": "2w",
+                  "outputs": ["measurable output 1", "output 2"],
+                  "risks": ["risk and mitigation 1", "risk 2"],
+                  "tasks": [
+                    {
+                      "title": "task name (Jira sub-task summary)",
+                      "description": "what exactly needs to be done",
+                      "priority": "High|Medium|Low",
+                      "dueDate": "YYYY-MM-DD",
+                      "labels": ["tag1"],
+                      "originalEstimate": "1d"
+                    }
+                  ]
+                }
+
+                Mandatory rules:
+                1. Keep the phase name (name field) exactly as provided by the user.
+                2. Dates in range %s — %s, format YYYY-MM-DD.
+                3. Min. 2 outputs, 2 risks, 3 tasks in this phase.
+                4. originalEstimate: Jira format — whole numbers only: "1w", "1w 2d", "3d", "4h". NEVER use decimals like "1.5w".
+                5. component: choose a category relevant to the project (e.g. IT: Backend, Frontend, DevOps; Business: Premises, Marketing, Staff, Logistics, Finance, Operations).
+                6. All texts in English, no placeholders, no "...".
+                7. Tasks, risks and outputs must be SPECIFIC and REALISTIC for this project type.
+                """,
+            inputBlock,
+            phaseNum, totalPhases, totalPhases,
+            phaseName,
+            phaseDesc,
+            phaseDates[phaseNum - 1][0], phaseDates[phaseNum - 1][1],
+            phaseName,
+            phaseDates[phaseNum - 1][1],
+            phaseDates[phaseNum - 1][0], phaseDates[phaseNum - 1][1]);
+    }
+
+    // ========== SCRUM SPRINT PROMPT (per-sprint, user-customized) ==========
+
+    private String buildScrumSprintPrompt(String inputBlock, ItemSpec sprint, int sprintNum, int totalSprints, String[][] sprintDates) {
+        String sprintName = sprint.name() == null ? "" : sprint.name();
+        String sprintDesc = sprint.description() == null ? "" : sprint.description();
         return String.format("""
                 Si skúsený Scrum master. Vráť IBA platný JSON objekt pre JEDEN šprint. Žiadny text mimo JSON, žiadny Markdown.
 
                 Vstupné údaje:
                 %s
-                DÔLEŽITÉ: Analyzuj popis projektu a vytvor šprint, ktorý zodpovedá REÁLNEMU typu tohto podnikania/projektu.
-                Ak ide o softvérový projekt — epiky a stories by mali byť o vývoji, testovaní, nasadení.
-                Ak ide o fyzický podnik (kaviareň, obchod) — epiky by mali byť o priestoroch, vybavení, dodávateľoch, personáli, marketingu, otvorení.
-                Ak ide o iný typ — prispôsob obsah podľa reálneho kontextu.
-
-                Toto je šprint %d z 3. Celkovo 3 šprinty pokrývajú celý projekt od začiatku do konca.
-                - Šprint 1: Prvá tretina projektu (príprava, základy, plánovanie)
-                - Šprint 2: Stredná fáza (hlavná realizácia, kľúčové aktivity)
-                - Šprint 3: Záverečná fáza (dokončenie, testovanie/kontrola, spustenie)
+                Toto je šprint %d z %d. Celkovo %d šprintov pokrýva projekt od začiatku do konca.
+                Názov TOHTO šprintu (zadaný používateľom): %s
+                Popis TOHTO šprintu (zadaný používateľom): %s
                 Dátumový rozsah TOHTO šprintu: %s až %s
+
+                DÔLEŽITÉ: Analyzuj popis projektu a vytvor šprint, ktorý zodpovedá REÁLNEMU typu tohto podnikania/projektu.
+                Ak ide o softvérový projekt — epiky a stories o vývoji, testovaní, nasadení.
+                Ak ide o fyzický podnik (kaviareň, obchod) — epiky o priestoroch, vybavení, dodávateľoch, personáli, marketingu, otvorení.
+                Ak ide o iný typ — prispôsob obsah reálnemu kontextu.
 
                 Vráť JSON pre JEDEN šprint:
                 {
-                  "name": "názov šprintu (summary v Jira)",
+                  "name": "%s",
                   "goal": "konkrétny cieľ šprintu",
                   "description": "stručný plán práce",
                   "dueDate": "%s",
@@ -278,97 +506,47 @@ public class OpenAiService {
                 }
 
                 Pravidlá:
-                1. Presne 2 epiky, každý s 2-3 user stories.
-                2. Každá story: 3 acceptanceCriteria, 2 subTasks.
-                3. storyPoints: Fibonacci (1, 2, 3, 5, 8, 13).
-                4. originalEstimate: Jira formát — iba celé čísla: "1w", "1w 2d", "3d", "4h". NIKDY nepoužívaj desatinné čísla ako "1.5w".
-                5. Dátumy v rozsahu %s — %s.
-                6. component: relevantná kategória pre projekt (napr. IT: Backend, Frontend; Podnik: Priestory, Personál, Marketing, Logistika, Financie).
-                7. Úlohy a stories musia byť KONKRÉTNE a REALISTICKÉ pre daný typ projektu.
+                1. Názov šprintu (name) zachovaj presne podľa zadania používateľa.
+                2. Presne 2 epiky, každý s 2-3 user stories.
+                3. Každá story: 3 acceptanceCriteria, 2 subTasks.
+                4. storyPoints: Fibonacci (1, 2, 3, 5, 8, 13).
+                5. originalEstimate: Jira formát — iba celé čísla: "1w", "1w 2d", "3d", "4h". NIKDY nepoužívaj desatinné čísla ako "1.5w".
+                6. Dátumy v rozsahu %s — %s.
+                7. component: relevantná kategória pre projekt (IT: Backend, Frontend; Podnik: Priestory, Personál, Marketing, Logistika, Financie).
                 8. Texty po slovensky, kompletné — žiadne "..." alebo placeholdery.
                 """,
-            inputBlock, sprintNum,
+            inputBlock,
+            sprintNum, totalSprints, totalSprints,
+            sprintName,
+            sprintDesc,
             sprintDates[sprintNum - 1][0], sprintDates[sprintNum - 1][1],
-            sprintDates[sprintNum - 1][1], sprintNum,
+            sprintName,
+            sprintDates[sprintNum - 1][1],
+            sprintNum,
             sprintDates[sprintNum - 1][0], sprintDates[sprintNum - 1][1]);
     }
 
-    // ========== ENGLISH PROMPTS ==========
-
-    private String buildPrince2PromptEN(String inputBlock, String dateFrom) {
-        return String.format("""
-                You are a certified PRINCE2 project manager. Return ONLY a valid JSON object. No text outside JSON, no Markdown.
-
-                Input data:
-                %s
-                IMPORTANT: Analyze the project description and create a plan that matches the REAL type of this business/project.
-                If it is a software project — use phases of analysis, development, testing and deployment.
-                If it is a physical business (cafe, shop, restaurant) — use phases of premises preparation, equipment purchase, staff recruitment, marketing and opening.
-                If it is another type of project — adapt phases to the real context.
-
-                Return JSON in this structure:
-                {
-                  "name": "concise project name",
-                  "description": "main goal and benefit of the project",
-                  "stages": [
-                    {
-                      "name": "stage name (Jira summary)",
-                      "description": "detailed description of work in this stage",
-                      "dueDate": "YYYY-MM-DD",
-                      "priority": "High|Medium|Low",
-                      "labels": ["tag1","tag2"],
-                      "component": "work category relevant to this project",
-                      "originalEstimate": "2w",
-                      "outputs": ["measurable output 1", "output 2"],
-                      "risks": ["risk and mitigation 1", "risk 2"],
-                      "tasks": [
-                        {
-                          "title": "task name (Jira sub-task summary)",
-                          "description": "what exactly needs to be done",
-                          "priority": "High|Medium|Low",
-                          "dueDate": "YYYY-MM-DD",
-                          "labels": ["tag1"],
-                          "originalEstimate": "1d"
-                        }
-                      ]
-                    }
-                  ]
-                }
-
-                Mandatory rules:
-                1. Exactly 4 stages logically sequential and realistic for this project type.
-                2. Dates >= %s, format YYYY-MM-DD. Plan realistically within the timeframe.
-                3. Each stage: min. 2 outputs, 2 risks, 3 tasks.
-                4. originalEstimate: Jira format — whole numbers only: "1w", "1w 2d", "3d", "4h". NEVER use decimals like "1.5w".
-                5. component: choose a category relevant to the project (e.g. IT: Backend, Frontend, DevOps; Business: Premises, Marketing, Staff, Logistics, Finance, Operations).
-                6. All texts in English, no placeholders.
-                7. Labels: relevant to project context.
-                8. Tasks, risks and outputs must be SPECIFIC and REALISTIC for this project type — not generic.
-
-                IMPORTANT: Generate COMPLETE content for ALL 4 stages. NEVER use "..." or other abbreviations.
-                """, inputBlock, dateFrom);
-    }
-
-    private String buildScrumSprintPromptEN(String inputBlock, int sprintNum, String[][] sprintDates) {
+    private String buildScrumSprintPromptEN(String inputBlock, ItemSpec sprint, int sprintNum, int totalSprints, String[][] sprintDates) {
+        String sprintName = sprint.name() == null ? "" : sprint.name();
+        String sprintDesc = sprint.description() == null ? "" : sprint.description();
         return String.format("""
                 You are an experienced Scrum master. Return ONLY a valid JSON object for ONE sprint. No text outside JSON, no Markdown.
 
                 Input data:
                 %s
-                IMPORTANT: Analyze the project description and create a sprint that matches the REAL type of this business/project.
-                If it is a software project — epics and stories should be about development, testing, deployment.
-                If it is a physical business (cafe, shop) — epics should be about premises, equipment, suppliers, staff, marketing, opening.
-                If it is another type — adapt content to the real context.
-
-                This is sprint %d of 3. Total 3 sprints cover the entire project from start to finish.
-                - Sprint 1: First third of the project (preparation, foundations, planning)
-                - Sprint 2: Middle phase (main implementation, key activities)
-                - Sprint 3: Final phase (completion, testing/verification, launch)
+                This is sprint %d of %d. Total %d sprints cover the project from start to finish.
+                Name of THIS sprint (provided by user): %s
+                Description of THIS sprint (provided by user): %s
                 Date range of THIS sprint: %s to %s
+
+                IMPORTANT: Analyze the project description and create a sprint that matches the REAL type of this business/project.
+                If it is a software project — epics and stories about development, testing, deployment.
+                If it is a physical business (cafe, shop) — epics about premises, equipment, suppliers, staff, marketing, opening.
+                If it is another type — adapt content to the real context.
 
                 Return JSON for ONE sprint:
                 {
-                  "name": "sprint name (Jira summary)",
+                  "name": "%s",
                   "goal": "specific sprint goal",
                   "description": "brief work plan",
                   "dueDate": "%s",
@@ -407,23 +585,61 @@ public class OpenAiService {
                 }
 
                 Rules:
-                1. Exactly 2 epics, each with 2-3 user stories.
-                2. Each story: 3 acceptanceCriteria, 2 subTasks.
-                3. storyPoints: Fibonacci (1, 2, 3, 5, 8, 13).
-                4. originalEstimate: Jira format — whole numbers only: "1w", "1w 2d", "3d", "4h". NEVER use decimals like "1.5w".
-                5. Dates in range %s — %s.
-                6. component: relevant category for the project (e.g. IT: Backend, Frontend; Business: Premises, Staff, Marketing, Logistics, Finance).
-                7. Tasks and stories must be SPECIFIC and REALISTIC for this project type.
+                1. Keep the sprint name (name field) exactly as provided by the user.
+                2. Exactly 2 epics, each with 2-3 user stories.
+                3. Each story: 3 acceptanceCriteria, 2 subTasks.
+                4. storyPoints: Fibonacci (1, 2, 3, 5, 8, 13).
+                5. originalEstimate: Jira format — whole numbers only: "1w", "1w 2d", "3d", "4h". NEVER use decimals like "1.5w".
+                6. Dates in range %s — %s.
+                7. component: relevant category for the project (IT: Backend, Frontend; Business: Premises, Staff, Marketing, Logistics, Finance).
                 8. All texts in English, complete — no "..." or placeholders.
                 """,
-            inputBlock, sprintNum,
+            inputBlock,
+            sprintNum, totalSprints, totalSprints,
+            sprintName,
+            sprintDesc,
             sprintDates[sprintNum - 1][0], sprintDates[sprintNum - 1][1],
-            sprintDates[sprintNum - 1][1], sprintNum,
+            sprintName,
+            sprintDates[sprintNum - 1][1],
+            sprintNum,
             sprintDates[sprintNum - 1][0], sprintDates[sprintNum - 1][1]);
     }
 
     // ========== JSON → XML CONVERSION ==========
 
+    /** Combines multiple PRINCE2 phase JSON responses into one PRINCE2Project XML. */
+    // package-private for testing
+    String convertPrince2PhasesToXml(List<String> phaseJsons, String projectName, String projectDescription) {
+        StringBuilder xml = new StringBuilder();
+        xml.append("<PRINCE2Project>\n");
+        xml.append("  <Name>").append(xmlEscape(projectName)).append("</Name>\n");
+        xml.append("  <Description>").append(xmlEscape(projectDescription)).append("</Description>\n");
+        xml.append("  <Stages>\n");
+
+        for (int i = 0; i < phaseJsons.size(); i++) {
+            try {
+                String jsonBlock = extractJsonBlock(phaseJsons.get(i));
+                JsonNode stage = objectMapper.readTree(jsonBlock);
+                appendStageXml(xml, stage);
+                log.info("✅ PRINCE2 Phase {} JSON → XML OK", i + 1);
+            } catch (Exception e) {
+                log.error("❌ PRINCE2 Phase {} JSON→XML chyba: {}", i + 1, e.getMessage());
+                xml.append("    <Stage>\n");
+                xml.append("      <Name>Faza ").append(i + 1).append(" (chyba generovania)</Name>\n");
+                xml.append("      <Description>Chyba: ").append(xmlEscape(e.getMessage())).append("</Description>\n");
+                xml.append("      <Tasks>\n      </Tasks>\n");
+                xml.append("    </Stage>\n");
+            }
+        }
+
+        xml.append("  </Stages>\n");
+        xml.append("</PRINCE2Project>");
+
+        log.info("✅ PRINCE2 combined XML ({} znakov)", xml.length());
+        return xml.toString();
+    }
+
+    /** Legacy single-response PRINCE2 conversion, kept for tests. */
     // package-private for testing
     String convertPrince2JsonToXml(String jsonResponse) {
         try {
@@ -438,41 +654,7 @@ public class OpenAiService {
 
             JsonNode stages = root.get("stages");
             if (stages != null && stages.isArray()) {
-                for (JsonNode stage : stages) {
-                    xml.append("    <Stage>\n");
-                    xml.append("      <Name>").append(esc(stage, "name")).append("</Name>\n");
-                    xml.append("      <Description>").append(esc(stage, "description")).append("</Description>\n");
-                    xml.append("      <DueDate>").append(esc(stage, "dueDate")).append("</DueDate>\n");
-                    xml.append("      <Priority>").append(esc(stage, "priority")).append("</Priority>\n");
-                    xml.append("      <Labels>").append(joinArray(stage, "labels")).append("</Labels>\n");
-                    xml.append("      <Component>").append(esc(stage, "component")).append("</Component>\n");
-                    xml.append("      <OriginalEstimate>").append(esc(stage, "originalEstimate")).append("</OriginalEstimate>\n");
-
-                    xml.append("      <Outputs>\n");
-                    appendXmlArray(xml, stage, "outputs", "Output", "        ");
-                    xml.append("      </Outputs>\n");
-
-                    xml.append("      <Risks>\n");
-                    appendXmlArray(xml, stage, "risks", "Risk", "        ");
-                    xml.append("      </Risks>\n");
-
-                    xml.append("      <Tasks>\n");
-                    JsonNode tasks = stage.get("tasks");
-                    if (tasks != null && tasks.isArray()) {
-                        for (JsonNode t : tasks) {
-                            xml.append("        <Task>\n");
-                            xml.append("          <Title>").append(esc(t, "title")).append("</Title>\n");
-                            xml.append("          <Description>").append(esc(t, "description")).append("</Description>\n");
-                            xml.append("          <Priority>").append(esc(t, "priority")).append("</Priority>\n");
-                            xml.append("          <DueDate>").append(esc(t, "dueDate")).append("</DueDate>\n");
-                            xml.append("          <Labels>").append(joinArray(t, "labels")).append("</Labels>\n");
-                            xml.append("          <OriginalEstimate>").append(esc(t, "originalEstimate")).append("</OriginalEstimate>\n");
-                            xml.append("        </Task>\n");
-                        }
-                    }
-                    xml.append("      </Tasks>\n");
-                    xml.append("    </Stage>\n");
-                }
+                for (JsonNode stage : stages) appendStageXml(xml, stage);
             }
 
             xml.append("  </Stages>\n");
@@ -488,26 +670,60 @@ public class OpenAiService {
         }
     }
 
-    /** Combines 3 separate sprint JSON responses into one ScrumProject XML. */
+    /** Appends a single PRINCE2 stage/phase JSON node as XML. */
+    private void appendStageXml(StringBuilder xml, JsonNode stage) {
+        xml.append("    <Stage>\n");
+        xml.append("      <Name>").append(esc(stage, "name")).append("</Name>\n");
+        xml.append("      <Description>").append(esc(stage, "description")).append("</Description>\n");
+        xml.append("      <DueDate>").append(esc(stage, "dueDate")).append("</DueDate>\n");
+        xml.append("      <Priority>").append(esc(stage, "priority")).append("</Priority>\n");
+        xml.append("      <Labels>").append(joinArray(stage, "labels")).append("</Labels>\n");
+        xml.append("      <Component>").append(esc(stage, "component")).append("</Component>\n");
+        xml.append("      <OriginalEstimate>").append(esc(stage, "originalEstimate")).append("</OriginalEstimate>\n");
+
+        xml.append("      <Outputs>\n");
+        appendXmlArray(xml, stage, "outputs", "Output", "        ");
+        xml.append("      </Outputs>\n");
+
+        xml.append("      <Risks>\n");
+        appendXmlArray(xml, stage, "risks", "Risk", "        ");
+        xml.append("      </Risks>\n");
+
+        xml.append("      <Tasks>\n");
+        JsonNode tasks = stage.get("tasks");
+        if (tasks != null && tasks.isArray()) {
+            for (JsonNode t : tasks) {
+                xml.append("        <Task>\n");
+                xml.append("          <Title>").append(esc(t, "title")).append("</Title>\n");
+                xml.append("          <Description>").append(esc(t, "description")).append("</Description>\n");
+                xml.append("          <Priority>").append(esc(t, "priority")).append("</Priority>\n");
+                xml.append("          <DueDate>").append(esc(t, "dueDate")).append("</DueDate>\n");
+                xml.append("          <Labels>").append(joinArray(t, "labels")).append("</Labels>\n");
+                xml.append("          <OriginalEstimate>").append(esc(t, "originalEstimate")).append("</OriginalEstimate>\n");
+                xml.append("        </Task>\n");
+            }
+        }
+        xml.append("      </Tasks>\n");
+        xml.append("    </Stage>\n");
+    }
+
+    /** Combines N separate sprint JSON responses into one ScrumProject XML. */
     // package-private for testing
-    String convertScrumSprintsToXml(String sprint1Json, String sprint2Json, String sprint3Json,
-                                            String projectName, String projectDescription) {
+    String convertScrumSprintsToXml(List<String> sprintJsons, String projectName, String projectDescription) {
         StringBuilder xml = new StringBuilder();
         xml.append("<ScrumProject>\n");
         xml.append("  <Name>").append(xmlEscape(projectName)).append("</Name>\n");
         xml.append("  <Description>").append(xmlEscape(projectDescription)).append("</Description>\n");
         xml.append("  <Sprints>\n");
 
-        String[] sprintJsons = { sprint1Json, sprint2Json, sprint3Json };
-        for (int i = 0; i < sprintJsons.length; i++) {
+        for (int i = 0; i < sprintJsons.size(); i++) {
             try {
-                String jsonBlock = extractJsonBlock(sprintJsons[i]);
+                String jsonBlock = extractJsonBlock(sprintJsons.get(i));
                 JsonNode sprint = objectMapper.readTree(jsonBlock);
                 appendSprintXml(xml, sprint);
                 log.info("✅ Scrum Sprint {} JSON → XML OK", i + 1);
             } catch (Exception e) {
                 log.error("❌ Scrum Sprint {} JSON→XML chyba: {}", i + 1, e.getMessage());
-                // Add empty sprint placeholder so the structure remains valid
                 xml.append("    <Sprint>\n");
                 xml.append("      <Name>Šprint ").append(i + 1).append(" (chyba generovania)</Name>\n");
                 xml.append("      <Goal>Chyba: ").append(xmlEscape(e.getMessage())).append("</Goal>\n");
@@ -521,6 +737,11 @@ public class OpenAiService {
 
         log.info("✅ Scrum combined XML ({} znakov)", xml.length());
         return xml.toString();
+    }
+
+    /** Legacy 3-sprint overload kept for tests. */
+    String convertScrumSprintsToXml(String s1, String s2, String s3, String projectName, String projectDescription) {
+        return convertScrumSprintsToXml(Arrays.asList(s1, s2, s3), projectName, projectDescription);
     }
 
     /** Appends a single sprint JSON node as XML. */

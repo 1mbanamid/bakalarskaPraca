@@ -14,11 +14,14 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.JsonNode;
 
 @RestController
 @RequestMapping("/api")
@@ -31,6 +34,7 @@ public class ChatController {
     private final OpenAiService openAiService;
     private final ProjectRepository projectRepository;
     private final JiraService jiraService;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     private final Set<String> exportInProgress = ConcurrentHashMap.newKeySet();
 
@@ -40,16 +44,18 @@ public class ChatController {
         this.jiraService = jiraService;
     }
 
-    @Operation(summary = "Generate project plan", description = "Generates PRINCE2 and Scrum project plans using Azure OpenAI. Returns XML containing both methodologies.")
+    @Operation(summary = "Generate project skeleton",
+        description = "Lightweight AI call that proposes a structure (PRINCE2 phases + Scrum sprints) with short descriptions. "
+            + "User can edit/add/remove items and disable one methodology before calling /generate.")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Plan generated successfully"),
-        @ApiResponse(responseCode = "400", description = "Missing required fields (name or description)"),
+        @ApiResponse(responseCode = "200", description = "Skeleton returned as JSON {prince2:[...], scrum:[...]}"),
+        @ApiResponse(responseCode = "400", description = "Missing required fields"),
         @ApiResponse(responseCode = "500", description = "AI generation error")
     })
-    @PostMapping("/generate")
-    public ResponseEntity<Map<String, String>> generate(@RequestBody Map<String, String> request) {
-        String name = request.get("name");
-        String description = request.get("description");
+    @PostMapping("/skeleton")
+    public ResponseEntity<Map<String, Object>> generateSkeleton(@RequestBody Map<String, Object> request) {
+        String name = asString(request.get("name"));
+        String description = asString(request.get("description"));
 
         if (name == null || name.isBlank()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Nazov projektu je povinny"));
@@ -58,13 +64,72 @@ public class ChatController {
             return ResponseEntity.badRequest().body(Map.of("error", "Popis projektu je povinny"));
         }
 
-        String startDate = request.get("startDate");
-        String deadline = request.get("deadline");
-        String lang = request.get("lang");
+        String startDate = asString(request.get("startDate"));
+        String deadline = asString(request.get("deadline"));
+        String lang = asString(request.get("lang"));
         if (lang == null || lang.isBlank()) lang = "sk";
 
         try {
-            String xmlResponse = openAiService.generateProjectPlan(name, description, startDate, deadline, lang);
+            String json = openAiService.generateSkeleton(name, description, startDate, deadline, lang);
+            JsonNode parsed = objectMapper.readTree(json);
+
+            Map<String, Object> response = new HashMap<>();
+            response.put("prince2", parsed.has("prince2") ? parsed.get("prince2") : new ArrayList<>());
+            response.put("scrum", parsed.has("scrum") ? parsed.get("scrum") : new ArrayList<>());
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+            log.error("Chyba pri generovani skeletu: {}", e.getMessage(), e);
+            return ResponseEntity.internalServerError().body(Map.of(
+                "error", "Chyba pri generovani skeletu: " + e.getMessage()
+            ));
+        }
+    }
+
+    @Operation(summary = "Generate project plan",
+        description = "Generates PRINCE2 and Scrum project plans in parallel (one AI call per phase/sprint). "
+            + "Accepts user-customized phases (PRINCE2) and sprints (Scrum) — each list 1–10 items. "
+            + "Pass null or empty list to disable that methodology. At least one methodology must be active.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Plan generated successfully"),
+        @ApiResponse(responseCode = "400", description = "Missing required fields or invalid phases/sprints"),
+        @ApiResponse(responseCode = "500", description = "AI generation error")
+    })
+    @PostMapping("/generate")
+    public ResponseEntity<Map<String, String>> generate(@RequestBody Map<String, Object> request) {
+        String name = asString(request.get("name"));
+        String description = asString(request.get("description"));
+
+        if (name == null || name.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Nazov projektu je povinny"));
+        }
+        if (description == null || description.isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Popis projektu je povinny"));
+        }
+
+        String startDate = asString(request.get("startDate"));
+        String deadline = asString(request.get("deadline"));
+        String lang = asString(request.get("lang"));
+        if (lang == null || lang.isBlank()) lang = "sk";
+
+        List<OpenAiService.ItemSpec> phases = parseSpecs(request.get("phases"));
+        List<OpenAiService.ItemSpec> sprints = parseSpecs(request.get("sprints"));
+
+        if ((phases == null || phases.isEmpty()) && (sprints == null || sprints.isEmpty())) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "error", "Musi byt vybrana aspon jedna metodologia (PRINCE2 alebo Scrum) s aspon 1 fazou/sprintom."
+            ));
+        }
+        if (phases != null && phases.size() > 10) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Maximum 10 faz pre PRINCE2."));
+        }
+        if (sprints != null && sprints.size() > 10) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Maximum 10 sprintov pre Scrum."));
+        }
+
+        try {
+            String xmlResponse = openAiService.generateProjectPlan(
+                name, description, startDate, deadline, lang, phases, sprints);
 
             Project project = new Project();
             project.setName(name);
@@ -83,6 +148,31 @@ public class ChatController {
                 "error", "Chyba pri generovani planu: " + e.getMessage()
             ));
         }
+    }
+
+    // ---------- helpers ----------
+
+    private static String asString(Object o) {
+        if (o == null) return null;
+        return o instanceof String s ? s : o.toString();
+    }
+
+    /** Parses an incoming JSON list of {name, description} into ItemSpec list. Null-safe. */
+    @SuppressWarnings("unchecked")
+    private List<OpenAiService.ItemSpec> parseSpecs(Object raw) {
+        if (raw == null) return null;
+        if (!(raw instanceof List)) return null;
+        List<Object> list = (List<Object>) raw;
+        List<OpenAiService.ItemSpec> out = new ArrayList<>();
+        for (Object item : list) {
+            if (!(item instanceof Map)) continue;
+            Map<String, Object> m = (Map<String, Object>) item;
+            String n = asString(m.get("name"));
+            String d = asString(m.get("description"));
+            if (n == null || n.isBlank()) continue;
+            out.add(new OpenAiService.ItemSpec(n.trim(), d == null ? "" : d.trim()));
+        }
+        return out;
     }
 
     @Operation(summary = "Get all projects", description = "Returns all saved projects ordered by ID descending (newest first)")
